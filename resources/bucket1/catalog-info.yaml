@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: customer-documents-bucket
+  title: Customer Documents S3 Bucket
+  description: Bucket S3 che contiene i documenti caricati dai clienti.
+  tags:
+    - aws
+    - s3
+    - storage
+  annotations:
+    backstage.io/managed-by-location: url:https://github.com/tommyliverani/highway-to-cloud/resources/bucket1
+spec:
+  type: s3-bucket
+  owner: team-platform
+  system: customer-platform
+  lifecycle: production
