@@ -1,6 +1,11 @@
 integrations:
   github:
     - host: github.com
+    
+catalog:
+  # ABILITA I TEMPLATE A LIVELLO GLOBALE
+  rules:
+    - allow: [Component, System, API, Resource, Template, Group, User]
 
 catalog:
   locations:
