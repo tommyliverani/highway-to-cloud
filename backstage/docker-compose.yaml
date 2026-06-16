@@ -4,15 +4,15 @@ services:
   backstage:
     image: ghcr.io/backstage/backstage:latest
     container_name: backstage-stateless
+    volumes:
+      - ./app-config.local.yaml:/app/app-config.local.yaml
+      # Montiamo la tua cartella .ssh in sola lettura dentro il container per l'utente root di Backstage
+      - /home/tommy/.ssh:/root/.ssh:ro
     environment:
-      # ... le altre variabili che hai già messo ...
       APP_CONFIG_permission_enabled: "false"
       APP_CONFIG_backend_auth_dangerouslyDisableDefaultAuthPolicy: "true"
-      # Forza l'uso di SQLite in memoria (nessun DB da gestire sul file system)
       APP_CONFIG_backend_database_client: better-sqlite3
       APP_CONFIG_backend_database_connection: ":memory:"
-      
-      # Configurazione degli URL di base
       APP_CONFIG_app_baseUrl: http://localhost:3000
       APP_CONFIG_backend_baseUrl: http://localhost:7007
     ports:

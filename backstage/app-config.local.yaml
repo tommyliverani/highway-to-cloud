@@ -1,0 +1,8 @@
+integrations:
+  github:
+    - host: github.com
+
+catalog:
+  locations:
+    - type: url
+      target: git@github.com:tommyliverani/highway-to-cloud.git/blob/main/resources/**/catalog-info.yaml
