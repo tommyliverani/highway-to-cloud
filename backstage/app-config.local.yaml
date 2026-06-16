@@ -1,8 +1,6 @@
 integrations:
   github:
     - host: github.com
-
-catalog:
   # ABILITA I TEMPLATE A LIVELLO GLOBALE
   
 
