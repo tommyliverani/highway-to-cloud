@@ -5,4 +5,4 @@ integrations:
 catalog:
   locations:
     - type: url
-      target: http://github.com/tommyliverani/highway-to-cloud/blob/main/resources/**/catalog-info.yaml
+      target: https://github.com/tommyliverani/highway-to-cloud/blob/main/resources/**/catalog-info.yaml
