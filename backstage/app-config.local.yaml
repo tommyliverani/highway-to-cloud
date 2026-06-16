@@ -1,17 +1,16 @@
 integrations:
   github:
     - host: github.com
-    
-catalog:
-  # ABILITA I TEMPLATE A LIVELLO GLOBALE
-  rules:
-    - allow: [Component, System, API, Resource, Template, Group, User]
 
 catalog:
+  # ABILITA I TEMPLATE A LIVELLO GLOBALE
+  
+
+catalog:
+  rules:
+      - allow: [Component, System, API, Resource, Template, Group, User]
   locations:
     - type: url
       target: https://github.com/tommyliverani/highway-to-cloud/blob/main/resources/**/catalog-info.yaml
     - type: url
       target: https://github.com/tommyliverani/highway-to-cloud/blob/main/templates/**/template.yaml
-      rules:
-        - allow: [Template]
