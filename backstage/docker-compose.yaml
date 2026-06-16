@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  backstage:
+    image: ghcr.io/backstage/backstage:latest
+    container_name: backstage-stateless
+    environment:
+      # ... le altre variabili che hai già messo ...
+      APP_CONFIG_permission_enabled: "false"
+      APP_CONFIG_backend_auth_dangerouslyDisableDefaultAuthPolicy: "true"
+      # Forza l'uso di SQLite in memoria (nessun DB da gestire sul file system)
+      APP_CONFIG_backend_database_client: better-sqlite3
+      APP_CONFIG_backend_database_connection: ":memory:"
+      
+      # Configurazione degli URL di base
+      APP_CONFIG_app_baseUrl: http://localhost:3000
+      APP_CONFIG_backend_baseUrl: http://localhost:7007
+    ports:
+      - "3000:3000"
+      - "7007:7007"
