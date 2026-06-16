@@ -6,9 +6,10 @@ services:
     container_name: backstage-stateless
     volumes:
       - ./app-config.local.yaml:/app/app-config.local.yaml
-      # Montiamo la tua cartella .ssh in sola lettura dentro il container per l'utente root di Backstage
-      - /home/tommy/.ssh:/root/.ssh:ro
+    # SPIEGHIAMO A BACKSTAGE DI CARICARE IL TUO FILE LOCALE
+    command: ["node", "packages/backend", "--config", "app-config.yaml", "--config", "app-config.local.yaml"]
     environment:
+      NODE_ENV: development # Evita anche i fastidiosi messaggi di WARN sul localhost
       APP_CONFIG_permission_enabled: "false"
       APP_CONFIG_backend_auth_dangerouslyDisableDefaultAuthPolicy: "true"
       APP_CONFIG_backend_database_client: better-sqlite3
