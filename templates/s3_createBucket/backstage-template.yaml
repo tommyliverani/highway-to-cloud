@@ -45,6 +45,14 @@ spec:
         values:
           bucketName: ${{ parameters.bucketName }}
     
+    - id: generate-bucket-vars
+      name: Generate bucket files
+      action: fetch:template
+      input:
+        url: ./templates/s3_createBucket/bucket
+        targetPath: ./resources/${{ parameters.bucketName }}
+        values:
+          bucketName: ${{ parameters.bucketName }}
 
     
 
