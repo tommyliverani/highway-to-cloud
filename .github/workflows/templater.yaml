@@ -130,39 +130,29 @@ jobs:
           });
           '
 
-      # 6) Create a local commit, generate a dedicated Git Tag and push ONLY the tag
-      - name: Create and Push Git Tag
-        id: git_tagging
+      # 6) Create a new dedicated release branch and push it
+      - name: Create and Push Release Branch
         run: |
+          # 1. Definiamo il nome del branch di release (es: release/s3_createBucket_bucket2)
+          BRANCH_NAME="release/${{ github.event.inputs.operation_id }}_${{ github.event.inputs.resource_id }}"
+          echo "Target Release Branch: $BRANCH_NAME"
+          
+          # 2. Ci spostiamo (creandolo) su questo nuovo branch locale dedicatogli
+          git checkout -b "$BRANCH_NAME"
+          
+          # 3. Configura le credenziali Git del bot
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
+          # 4. Aggiungiamo i file generati nell'area di staging
           git add ./resources/
           
+          # 5. Eseguiamo il commit e il push del nuovo branch remoto
           if git diff-index --quiet HEAD --; then
-            echo "No changes to deploy."
-            exit 1
+            echo "No changes detected. Skipping branch push."
+          else
+            git commit -m "release: catalog and variables for ${{ github.event.inputs.resource_id }}"
+            
+            echo "Pushing new branch to origin..."
+            git push origin "$BRANCH_NAME" --force
           fi
-          
-          # Creiamo il nome del tag/release dinamico (es: s3_createBucket_bucket2)
-          TAG_NAME="${{ github.event.inputs.operation_id }}_${{ github.event.inputs.resource_id }}"
-          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
-          
-          # Facciamo un commit locale (staccato da main) e associamo il tag a questo stato dei file
-          git commit -m "release: code artifact for $TAG_NAME"
-          git tag "$TAG_NAME"
-          
-          # Pushiamo esclusivamente il tag su GitHub. Il codice modificato vivrà solo dentro questo tag!
-          git push origin "$TAG_NAME"
-
-      # 7) Turn the pushed Git Tag into an official GitHub Release viewable in the UI
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.git_tagging.outputs.TAG_NAME }}
-          name: "Release ${{ steps.git_tagging.outputs.TAG_NAME }}"
-          body: |
-            Contenuto generato dinamicamente per l'operazione di Backstage.
-            I file sorgente compilati sono esplorabili direttamente nel codice di questa release (Source Code).
-          draft: false
-          prerelease: false
