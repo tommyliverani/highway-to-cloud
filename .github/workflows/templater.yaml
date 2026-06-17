@@ -1,4 +1,4 @@
-name: Execute Operation from Backstage
+name: templater
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ on:
         type: string
 
 jobs:
-  execute-template-copy:
+  templater:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,7 +25,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2) Copy ONLY the subdirectories from the template folder to the resource folder
+      # 2) Setup Node.js and install nunjucks-cli
+      - name: Setup Node.js and Install Nunjucks CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Nunjucks CLI
+        run: npm install -g nunjucks-cli
+
+      # 3) Copy ONLY the subdirectories to the resource folder
       - name: Copy template directories only
         run: |
           SRC_DIR="./templates/${{ github.event.inputs.operation_id }}"
@@ -44,47 +52,52 @@ jobs:
             fi
           done
 
-      # 3) Aggregate interface variables and merge input JSON parameters
-      - name: Aggregate interfaces and parameters
+      # 4) Aggregate interfaces and JSON to a temporary context JSON file
+      - name: Generate template context
         run: |
           INT_DIR="./interfaces/${{ github.event.inputs.operation_id }}"
-          OUTPUT_FILE="./resources/${{ github.event.inputs.resource_id }}/merged-config.yaml"
+          CONTEXT_FILE="/tmp/context.json"
           
-          echo "Initializing empty output YAML file..."
-          echo "{}" > "$OUTPUT_FILE"
+          echo "{}" > "$OUTPUT_FILE" # Inizializza oggetto vuoto JSON
+          echo "{}" > "$CONTEXT_FILE"
           
           if [ -d "$INT_DIR" ]; then
-            echo "Scanning interfaces in: $INT_DIR"
-            
             for sub_dir in "$INT_DIR"/*; do
               if [ -d "$sub_dir" ]; then
                 export INTERFACE_ID=$(basename "$sub_dir")
                 export VAR_FILE="$sub_dir/variables.yaml"
                 
                 if [ -f "$VAR_FILE" ]; then
-                  echo "Processing interface: $INTERFACE_ID"
-                  yq eval '.[strenv(INTERFACE_ID)] = load(strenv(VAR_FILE))' -i "$OUTPUT_FILE"
-                else
-                  echo "::warning::File $VAR_FILE not found, skipping."
+                  yq eval -o=json '.[strenv(INTERFACE_ID)] = load(strenv(VAR_FILE))' -i "$CONTEXT_FILE"
                 fi
               fi
             done
-          else
-            echo "::warning::Interfaces directory $INT_DIR does not exist. Skipping interfaces loop."
           fi
 
-          # 4) Append the 'parameters' key converting JSON to true YAML object
-          echo "Appending Backstage input parameters..."
-          
-          # Salviamo la stringa JSON in un file temporaneo
+          # Append Backstage parameters directly into the JSON context
           echo '${{ github.event.inputs.backstage_params }}' > /tmp/params.json
-          
-          # Convertiamo esplicitamente il file da JSON a YAML usando l'opzione -p (parser) di yq v4
-          yq eval -p=json '.' /tmp/params.json > /tmp/params.yaml
-          
-          # Ora lo carichiamo come un blocco YAML pulito sotto la chiave 'parameters'
-          yq eval '.parameters = load("/tmp/params.yaml")' -i "$OUTPUT_FILE"
+          yq eval -o=json '.parameters = load("/tmp/params.json")' -i "$CONTEXT_FILE"
 
-          echo "Aggregation completed successfully!"
-          echo "=== Final Output File Content ==="
-          cat "$OUTPUT_FILE"
+      # 5) Render Nunjucks (.njk) templates into actual .yaml files
+      - name: Render Nunjucks templates
+        run: |
+          SRC_DIR="./templates/${{ github.event.inputs.operation_id }}"
+          DEST_DIR="./resources/${{ github.event.inputs.resource_id }}"
+          CONTEXT_FILE="/tmp/context.json"
+
+          echo "Rendering Backstage Nunjucks templates..."
+
+          # Render catalog-info.njk -> catalog-info.yaml
+          if [ -f "$SRC_DIR/catalog-info.njk" ]; then
+            echo "Rendering catalog-info.njk"
+            nunjucks "$SRC_DIR/catalog-info.njk" --data "$CONTEXT_FILE" > "$DEST_DIR/catalog-info.yaml"
+          fi
+
+          # Render variables.njk -> variables.yaml
+          if [ -f "$SRC_DIR/variables.njk" ]; then
+            echo "Rendering variables.njk"
+            nunjucks "$SRC_DIR/variables.njk" --data "$CONTEXT_FILE" > "$DEST_DIR/variables.yaml"
+          fi
+
+          echo "Rendering completed! Final target directory structure:"
+          ls -la "$DEST_DIR"
