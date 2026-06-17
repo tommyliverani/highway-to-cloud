@@ -4,10 +4,16 @@ metadata:
   name: create-s3-bucket
   title: AWS S3 Create bucket
   description: Automatizza la creazione di un bucket S3 su AWS
-
 spec:
   owner: team-platform
   type: infrastructure
+
+  # --- LE TUE VARIABILI GLOBALI (Ancore YAML) ---
+  _config:
+    resource_repo_url: &resource_url "https://github.com/tommyliverani/highway-to-cloud.git"
+    resource_repo_path: &resource_path "./resources"
+    template_repo_url: &template_url "https://github.com/tommyliverani/highway-to-cloud.git"
+    template_repo_path: &template_path "./templates"
 
   parameters:
     - title: Dettagli del Bucket
@@ -24,11 +30,13 @@ spec:
       name: Clonazione del Repository Sorgente
       action: fetch:plain
       input:
-        url: https://github.com/tommyliverani/highway-to-cloud.git
-        targetPath: ./resources
+        url: *resource_url
+        targetPath: *resource_path
 
-  output:
-    text:
-      - title: Bucket S3
-        content: |
-          Bucket richiesto: ${{ parameters.bucketName }}
+    # Esempio per il secondo repository pronto all'uso
+    # - id: clone-template-repo
+    #   name: Clonazione dei Template di Supporto
+    #   action: fetch:plain
+    #   input:
+    #     url: *template_url
+    #     targetPath: *template_path
