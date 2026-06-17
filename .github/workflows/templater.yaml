@@ -25,13 +25,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2) Setup Node.js and install nunjucks-cli
-      - name: Setup Node.js and Install Nunjucks CLI
+      # 2) Setup Node.js and install core nunjucks package
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install Nunjucks CLI
-        run: npm install -g nunjucks-cli
+      - name: Install Nunjucks Core
+        run: npm install nunjucks
 
       # 3) Copy ONLY the subdirectories to the resource folder
       - name: Copy template directories only
@@ -77,29 +77,38 @@ jobs:
           echo '${{ github.event.inputs.backstage_params }}' > /tmp/params.json
           yq eval -o=json '.parameters = load("/tmp/params.json")' -i "$CONTEXT_FILE"
 
-      # 5) Render Nunjucks (.njk) templates into actual .yaml files using native CLI flags
+      # 5) Render templates using native Node script
       - name: Render Nunjucks templates
         run: |
-          SRC_DIR="./templates/${{ github.event.inputs.operation_id }}"
-          DEST_DIR="./resources/${{ github.event.inputs.resource_id }}"
-          CONTEXT_FILE="/tmp/context.json"
+          node -e '
+          const njk = require("nunjucks");
+          const fs = require("fs");
+          const path = require("path");
 
-          echo "Rendering Backstage Nunjucks templates..."
+          const srcDir = "./templates/${{ github.event.inputs.operation_id }}";
+          const destDir = "./resources/${{ github.event.inputs.resource_id }}";
+          const context = JSON.parse(fs.readFileSync("/tmp/context.json", "utf8"));
 
-          # Usiamo i parametri nativi della CLI per evitare il bug di path.resolve:
-          # -d specifica il file del contesto (data)
-          # -o specifica la cartella di output
-          # -e forza l'estensione finale in .yaml invece di ereditare .njk
-          
-          if [ -f "$SRC_DIR/catalog-info.njk" ]; then
-            echo "Rendering catalog-info.njk"
-            nunjucks "$SRC_DIR/catalog-info.njk" -d "$CONTEXT_FILE" -o "$DEST_DIR" -e yaml
-          fi
+          // Configura nunjucks per leggere dalla cartella dei template
+          njk.configure(srcDir, { autoescape: false });
 
-          if [ -f "$SRC_DIR/variables.njk" ]; then
-            echo "Rendering variables.njk"
-            nunjucks "$SRC_DIR/variables.njk" -d "$CONTEXT_FILE" -o "$DEST_DIR" -e yaml
-          fi
+          const templates = ["catalog-info.njk", "variables.njk"];
 
-          echo "Rendering completed! Final target directory structure:"
-          ls -la "$DEST_DIR"
+          templates.forEach(file => {
+            const srcPath = path.join(srcDir, file);
+            if (fs.existsSync(srcPath)) {
+              console.log(`Rendering ${file}...`);
+              const rendered = njk.render(file, context);
+              
+              // Cambia estensione da .njk a .yaml
+              const outputName = file.replace(".njk", ".yaml");
+              fs.writeFileSync(path.join(destDir, outputName), rendered);
+            }
+          });
+          '
+
+      # 6) Verify Output Structure
+      - name: Verify output
+        run: |
+          echo "Final target directory structure:"
+          ls -la "./resources/${{ github.event.inputs.resource_id }}"
