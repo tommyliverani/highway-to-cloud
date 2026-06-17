@@ -16,7 +16,6 @@ on:
         required: true
         type: string
 
-# Permesso di scrittura sui contenuti del repo per poter fare il push del codice
 permissions:
   contents: write
 
@@ -131,23 +130,39 @@ jobs:
           });
           '
 
-      # 6) Configure Git, commit changes, and push back to the repository
-      - name: Git Push Changes
+      # 6) Create a local commit, generate a dedicated Git Tag and push ONLY the tag
+      - name: Create and Push Git Tag
+        id: git_tagging
         run: |
-          # Configura l'utente Git usando il bot di GitHub Actions
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Tracciamo i file dentro resources
           git add ./resources/
           
-          # Verifichiamo se ci sono modifiche reali per evitare che il commit fallisca
           if git diff-index --quiet HEAD --; then
-            echo "No changes detected. Skipping push."
-          else
-            echo "Changes detected, committing..."
-            git commit -m "chore: executed operation ${{ github.event.inputs.operation_id }} for ${{ github.event.inputs.resource_id }}"
-            
-            echo "Pushing changes to branch..."
-            git push origin HEAD:${{ github.ref_name }}
+            echo "No changes to deploy."
+            exit 1
           fi
+          
+          # Creiamo il nome del tag/release dinamico (es: s3_createBucket_bucket2)
+          TAG_NAME="${{ github.event.inputs.operation_id }}_${{ github.event.inputs.resource_id }}"
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+          
+          # Facciamo un commit locale (staccato da main) e associamo il tag a questo stato dei file
+          git commit -m "release: code artifact for $TAG_NAME"
+          git tag "$TAG_NAME"
+          
+          # Pushiamo esclusivamente il tag su GitHub. Il codice modificato vivrà solo dentro questo tag!
+          git push origin "$TAG_NAME"
+
+      # 7) Turn the pushed Git Tag into an official GitHub Release viewable in the UI
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.git_tagging.outputs.TAG_NAME }}
+          name: "Release ${{ steps.git_tagging.outputs.TAG_NAME }}"
+          body: |
+            Contenuto generato dinamicamente per l'operazione di Backstage.
+            I file sorgente compilati sono esplorabili direttamente nel codice di questa release (Source Code).
+          draft: false
+          prerelease: false
