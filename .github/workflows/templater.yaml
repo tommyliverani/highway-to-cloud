@@ -77,7 +77,7 @@ jobs:
           echo '${{ github.event.inputs.backstage_params }}' > /tmp/params.json
           yq eval -o=json '.parameters = load("/tmp/params.json")' -i "$CONTEXT_FILE"
 
-      # 5) Render templates using native Node script
+      # 5) Render templates using native Node script + Custom Backstage Filters
       - name: Render Nunjucks templates
         run: |
           node -e '
@@ -89,8 +89,31 @@ jobs:
           const destDir = "./resources/${{ github.event.inputs.resource_id }}";
           const context = JSON.parse(fs.readFileSync("/tmp/context.json", "utf8"));
 
-          // Configura nunjucks per leggere dalla cartella dei template
-          njk.configure(srcDir, { autoescape: false });
+          // Inizializza l&apos;environment di Nunjucks
+          const env = njk.configure(srcDir, { autoescape: false });
+
+          // Mock dei filtri stringa di Backstage per non far fallire il rendering
+          env.addFilter("kebabCase", (str) => {
+            if (!str) return "";
+            return str.toString().trim()
+              .replace(/([a-z])([A-Z])/g, "$1-$2")
+              .replace(/[\s_]+/g, "-")
+              .toLowerCase();
+          });
+
+          env.addFilter("camelCase", (str) => {
+            if (!str) return "";
+            return str.toString().trim()
+              .replace(/[-_\s]+(.)?/g, (_, c) => c ? c.toUpperCase() : "");
+          });
+
+          env.addFilter("snakeCase", (str) => {
+            if (!str) return "";
+            return str.toString().trim()
+              .replace(/([a-z])([A-Z])/g, "$1_$2")
+              .replace(/[\s-]+/g, "_")
+              .toLowerCase();
+          });
 
           const templates = ["catalog-info.njk", "variables.njk"];
 
@@ -98,9 +121,8 @@ jobs:
             const srcPath = path.join(srcDir, file);
             if (fs.existsSync(srcPath)) {
               console.log(`Rendering ${file}...`);
-              const rendered = njk.render(file, context);
+              const rendered = env.render(file, context);
               
-              // Cambia estensione da .njk a .yaml
               const outputName = file.replace(".njk", ".yaml");
               fs.writeFileSync(path.join(destDir, outputName), rendered);
             }
