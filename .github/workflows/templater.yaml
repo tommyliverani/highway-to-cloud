@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   templater:
@@ -80,7 +81,7 @@ jobs:
           echo '${{ github.event.inputs.backstage_params }}' > /tmp/params.json
           yq eval -o=json '.parameters = load("/tmp/params.json")' -i "$CONTEXT_FILE"
 
-      # 5) Render templates using native Node script + Custom Backstage Filters
+      # 5) Render templates using native Node script + Custom Backstage Filters & Wrapper
       - name: Render Nunjucks templates
         run: |
           node -e '
@@ -90,30 +91,33 @@ jobs:
 
           const srcDir = "./templates/${{ github.event.inputs.operation_id }}";
           const destDir = "./resources/${{ github.event.inputs.resource_id }}";
-          const context = JSON.parse(fs.readFileSync("/tmp/context.json", "utf8"));
+          const rawContext = JSON.parse(fs.readFileSync("/tmp/context.json", "utf8"));
+
+          const context = {
+            values: {
+              parameters: rawContext.parameters || {},
+              prameters: rawContext.parameters || {},
+              platform: rawContext.platform || {},
+              security: rawContext.security || rawContext.secuirty || {},
+              secuirty: rawContext.security || rawContext.secuirty || {}
+            }
+          };
 
           const env = njk.configure(srcDir, { autoescape: false });
 
           env.addFilter("kebabCase", (str) => {
             if (!str) return "";
-            return str.toString().trim()
-              .replace(/([a-z])([A-Z])/g, "$1-$2")
-              .replace(/[\s_]+/g, "-")
-              .toLowerCase();
+            return str.toString().trim().replace(/([a-z])([A-Z])/g, "$1-$2").replace(/[\s_]+/g, "-").toLowerCase();
           });
 
           env.addFilter("camelCase", (str) => {
             if (!str) return "";
-            return str.toString().trim()
-              .replace(/[-_\s]+(.)?/g, (_, c) => c ? c.toUpperCase() : "");
+            return str.toString().trim().replace(/[-_\s]+(.)?/g, (_, c) => c ? c.toUpperCase() : "");
           });
 
           env.addFilter("snakeCase", (str) => {
             if (!str) return "";
-            return str.toString().trim()
-              .replace(/([a-z])([A-Z])/g, "$1_$2")
-              .replace(/[\s-]+/g, "_")
-              .toLowerCase();
+            return str.toString().trim().replace(/([a-z])([A-Z])/g, "$1_$2").replace(/[\s-]+/g, "_").toLowerCase();
           });
 
           const templates = ["catalog-info.njk", "variables.njk"];
@@ -130,29 +134,21 @@ jobs:
           });
           '
 
-      # 6) Create a new dedicated release branch and push it
-      - name: Create and Push Release Branch
-        run: |
-          # 1. Definiamo il nome del branch di release (es: release/s3_createBucket_bucket2)
-          BRANCH_NAME="release/${{ github.event.inputs.operation_id }}_${{ github.event.inputs.resource_id }}"
-          echo "Target Release Branch: $BRANCH_NAME"
-          
-          # 2. Ci spostiamo (creandolo) su questo nuovo branch locale dedicatogli
-          git checkout -b "$BRANCH_NAME"
-          
-          # 3. Configura le credenziali Git del bot
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 4. Aggiungiamo i file generati nell'area di staging
-          git add ./resources/
-          
-          # 5. Eseguiamo il commit e il push del nuovo branch remoto
-          if git diff-index --quiet HEAD --; then
-            echo "No changes detected. Skipping branch push."
-          else
-            git commit -m "release: catalog and variables for ${{ github.event.inputs.resource_id }}"
+      # 6) Create and Open a Pull Request on GitHub using a feature branch
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "feat: render templates for ${{ github.event.inputs.resource_id }}"
+          branch: "feature/${{ github.event.inputs.operation_id }}_${{ github.event.inputs.resource_id }}"
+          delete-branch: true
+          title: "Feature: ${{ github.event.inputs.operation_id }} - ${{ github.event.inputs.resource_id }}"
+          body: |
+            ### 🚀 Template Rendered Automatically
+            Questa Pull Request è stata aperta automaticamente dal workflow `templater`.
             
-            echo "Pushing new branch to origin..."
-            git push origin "$BRANCH_NAME" --force
-          fi
+            - **Operation ID**: `${{ github.event.inputs.operation_id }}`
+            - **Resource ID**: `${{ github.event.inputs.resource_id }}`
+            
+            Verifica i file generati nella cartella `./resources/` prima di effettuare il merge su `main`.
+          base: ${{ github.ref_name }}
