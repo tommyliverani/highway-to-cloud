@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: create-s3-bucket
   title: AWS S3 Bucket On-Demand
-  description: Automatizza la creazione di un bucket S3, genera il codice Terraform/OpenTofu e registra l'entità in Backstage.
+  description: Automatizza la creazione di un bucket S3 su AWS
 spec:
   owner: team-platform
   type: infrastructure
@@ -19,11 +19,6 @@ spec:
           title: Nome del Bucket S3
           type: string
           description: Verrà validato secondo le convenzioni AWS.
-        owner:
-          title: Owner Team
-          type: string
-          description: Il team responsabile di questa risorsa.
-          ui:field: OwnerPicker # Mostra i gruppi censiti in Backstage
 
   # 2. STEP DI AUTOMAZIONE
   steps:

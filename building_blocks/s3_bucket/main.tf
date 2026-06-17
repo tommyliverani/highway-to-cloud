@@ -18,6 +18,7 @@ resource "aws_s3_bucket_versioning" "bucket" {
 # Bucket server side encryption
 resource "aws_s3_bucket_server_side_encryption_configuration" "bucket" {
   bucket = aws_s3_bucket.bucket.id
+  count  = var.enable_server_side_encryption ? 1 : 0
 
   rule {
     apply_server_side_encryption_by_default {

@@ -1,0 +1,4 @@
+force_destroy: false
+object_lock_enabled: false
+region: eu-south-1
+account_id: 311618538285

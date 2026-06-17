@@ -3,6 +3,7 @@ module "s3" {
 
   bucket_name           = var.bucket_name
   force_destroy         = var.force_destroy
+  enable_server_side_encryption = var.enable_server_side_encryption
   kms_key               = var.kms_key
   kms_sse_alg           = var.kms_sse_alg
   object_lock_enabled   = var.object_lock_enabled

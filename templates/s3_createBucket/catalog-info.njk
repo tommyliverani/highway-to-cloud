@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: {{ values.parameters.name | kebabCase }}
+  title: {{ values.prameters.title }}
+  {%- if values.parameters.description %}
+  description: {{ values.parameters.description }}
+  {%- endif %}
+  technology: terraform
+  tags:
+    - aws
+    - s3
+    - storage
+spec:
+  type: s3-bucket
+  owner: guest
+  lifecycle: production

@@ -1,7 +1,7 @@
 integrations:
   github:
     - host: github.com
-    
+      token: <INSERT YOUR GITHUB PAT>
   
 
 catalog:

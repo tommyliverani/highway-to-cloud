@@ -4,6 +4,7 @@ metadata:
   name: bucket1
   title: Customer Documents S3 Bucket
   description: Bucket S3 che contiene i documenti caricati dai clienti.
+  technology: terraform
   tags:
     - aws
     - s3

@@ -15,6 +15,12 @@ variable "kms_key" {
   type        = string
 }
 
+variable "enable_server_side_encryption" {
+  description = "Enable server side encryption"
+  type        = bool
+  default     = false
+}
+
 variable "kms_sse_alg" {
   description = "Server side encryption algorithm. Valid values are: AES256 and aws:kms."
   type        = string

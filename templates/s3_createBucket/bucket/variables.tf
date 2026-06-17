@@ -10,6 +10,12 @@ variable "force_destroy" {
   default     = false
 }
 
+variable "enable_server_side_encryption" {
+  description = "Enable server side encryption"
+  type        = bool
+  default     = false
+}
+
 variable "kms_key" {
   description = "KMS key"
   type        = string
