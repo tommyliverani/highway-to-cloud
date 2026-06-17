@@ -73,16 +73,16 @@ jobs:
             echo "::warning::Interfaces directory $INT_DIR does not exist. Skipping interfaces loop."
           fi
 
-          # 4) Append the 'parameters' key converting JSON to YAML safely
+          # 4) Append the 'parameters' key converting JSON to true YAML object
           echo "Appending Backstage input parameters..."
           
-          # Salviamo il JSON temporaneo
+          # Salviamo la stringa JSON in un file temporaneo
           echo '${{ github.event.inputs.backstage_params }}' > /tmp/params.json
           
-          # Convertiamo il JSON in un file YAML temporaneo pulito
-          yq eval '.' /tmp/params.json > /tmp/params.yaml
+          # Convertiamo esplicitamente il file da JSON a YAML usando l'opzione -p (parser) di yq v4
+          yq eval -p=json '.' /tmp/params.json > /tmp/params.yaml
           
-          # Carichiamo il file YAML appena generato dentro la chiave .parameters
+          # Ora lo carichiamo come un blocco YAML pulito sotto la chiave 'parameters'
           yq eval '.parameters = load("/tmp/params.yaml")' -i "$OUTPUT_FILE"
 
           echo "Aggregation completed successfully!"
