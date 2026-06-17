@@ -58,7 +58,7 @@ jobs:
           INT_DIR="./interfaces/${{ github.event.inputs.operation_id }}"
           CONTEXT_FILE="/tmp/context.json"
           
-          echo "{}" > "$OUTPUT_FILE" # Inizializza oggetto vuoto JSON
+          # Inizializza l'oggetto JSON vuoto correttamente
           echo "{}" > "$CONTEXT_FILE"
           
           if [ -d "$INT_DIR" ]; then
