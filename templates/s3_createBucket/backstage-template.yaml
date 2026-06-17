@@ -2,7 +2,7 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: create-s3-bucket
-  title: AWS S3 Bucket On-Demand
+  title: AWS S3 Create bucket
   description: Automatizza la creazione di un bucket S3 su AWS
 spec:
   owner: team-platform
@@ -13,7 +13,6 @@ spec:
     - title: Dettagli del Bucket
       required:
         - bucketName
-        - owner
       properties:
         bucketName:
           title: Nome del Bucket S3
@@ -30,7 +29,6 @@ spec:
         url: ./skeleton # Una cartella locale al template con i file di base
         values:
           bucketName: ${{ parameters.bucketName }}
-          owner: ${{ parameters.owner }}
 
     # Passo B: Fai il commit del file YAML (quello che abbiamo visto prima) nel repo GitHub
     - id: publish
