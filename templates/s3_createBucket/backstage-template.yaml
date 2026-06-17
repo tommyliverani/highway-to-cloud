@@ -26,18 +26,23 @@ spec:
 
   steps:
 
-    - id: clone-remote-repo
-      name: Clonazione repository Git
-      action: git:clone
-      input:
-        url: *resource_url
-        targetPath: *resource_path
+steps:
+
+  - id: clone-remote-repo
+    name: Clonazione repository sorgente
+    action: fetch:plain
+    input:
+      url: *resource_url
+      targetPath: *resource_path
 
 
-    - id: create-local-branch
-      name: Creazione branch locale
-      action: shell:command
-      input:
-        command: |
-          git checkout -b feature/${{ context.task.id }}-${{ parameters.bucketName }}
-        workingDirectory: *resource_path
+  - id: init-git
+    name: Inizializzazione repository Git locale
+    action: shell:command
+    input:
+      command: |
+        git init
+        git remote add origin https://github.com/tommyliverani/highway-to-cloud.git
+        git fetch origin
+        git checkout -b feature/${{ context.task.id }}-${{ parameters.bucketName }}
+      workingDirectory: *resource_path
