@@ -8,12 +8,13 @@ spec:
   owner: team-platform
   type: infrastructure
 
-  # --- LE TUE VARIABILI GLOBALI (Ancore YAML) ---
   _config:
     resource_repo_url: &resource_url "https://github.com/tommyliverani/highway-to-cloud.git"
+    resource_repo_subpath: &resource_subpath "./resources"
     resource_repo_path: &resource_path "./resources"
     template_repo_url: &template_url "https://github.com/tommyliverani/highway-to-cloud.git"
     template_repo_path: &template_path "./templates"
+    template_repo_subpath: &template_subpath "./templates/s3_createBucket"
 
   parameters:
     - title: Dettagli del Bucket
@@ -32,6 +33,15 @@ spec:
       input:
         url: *resource_url
         targetPath: *resource_path
+
+    - id: create-local-branch
+      name: Creazione branch locale
+      action: shell:command
+      input:
+        command: |
+          git checkout -b feature/${{ context.task.id }}-${{ parameters.bucketName }}
+        workingDirectory: *resource_repo_path
+
 
     # Esempio per il secondo repository pronto all'uso
     # - id: clone-template-repo
