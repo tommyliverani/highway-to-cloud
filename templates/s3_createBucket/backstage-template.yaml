@@ -23,18 +23,29 @@ spec:
   steps:
 
     - id: clone-resource-repo
-      name: Clonazione repository sorgente
+      name: Clone resources repository
       action: fetch:plain
       input:
         url: https://github.com/tommyliverani/highway-to-cloud.git
         targetPath: ./resources
     
     - id: clone-template-repo
-      name: Clonazione repository template
+      name: Clone template repository
       action: fetch:plain
       input:
         url: https://github.com/tommyliverani/highway-to-cloud.git
         targetPath: ./templates
+
+    - id: generate-bucket-files
+      name: Generate bucket files
+     action: fetch:template
+      input:
+        url: ./templates
+        targetPath: ./resources/${{ parameters.bucketName }}
+        subpath: bucket
+        values:
+          bucketName: ${{ parameters.bucketName }}
+    
 
     
 
