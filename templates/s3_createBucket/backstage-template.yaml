@@ -18,31 +18,16 @@ spec:
           type: string
           description: Verrà validato secondo le convenzioni AWS.
 
-  # 2. STEP DI AUTOMAZIONE
+  constants:
+    resource_repo_url: "https://github.com/tommyliverani/highway-to-cloud.git"
+    resource_repo_path: "./resources"
+    template_repo_url: "https://github.com/tommyliverani/highway-to-cloud.git"
+    template_repo_path: "./templates"
+
   steps:
-    # Passo A: Prendi lo scheletro di file dal tuo repository (es. un file .tf di base)
-    - id: fetch-base
-      name: Recupera lo skeleton Git
-      action: fetch:template
+    - id: clone-remote-repo
+      name: Clonazione del Repository Sorgente
+      action: fetch:plain
       input:
-        url: ./skeleton # Una cartella locale al template con i file di base
-        values:
-          bucketName: ${{ parameters.bucketName }}
-
-    # Passo B: Fai il commit del file YAML (quello che abbiamo visto prima) nel repo GitHub
-    - id: publish
-      name: Pubblica su GitHub nel tuo repo 'highway-to-cloud'
-      action: publish:github
-      input:
-        allowedHosts: ['github.com']
-        description: "Infrastruttura per il bucket ${{ parameters.bucketName }}"
-        repoUrl: 'github.com?repo=highway-to-cloud&owner=tommyliverani'
-        branchName: 'main'
-
-    # Passo C: Registra automaticamente la nuova Resource nel catalogo attuale
-    - id: register
-      name: Registra nel catalogo di Backstage
-      action: catalog:register
-      input:
-        repoUrl: 'github.com?repo=highway-to-cloud&owner=tommyliverani'
-        catalogInfoPath: '/resources/${{ parameters.bucketName }}/catalog-info.yaml'
+        url: ${{ constants.resource_repo_url }}
+        targetPath: ${{ constants.resource_repo_path }}
