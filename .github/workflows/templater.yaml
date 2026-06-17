@@ -1,4 +1,4 @@
-name: Execute Operation from Backstage
+name: Templater
 
 on:
   workflow_dispatch:
