@@ -10,10 +10,6 @@ spec:
   owner: team-platform
   type: infrastructure
 
-  _config:
-    resource_repo_url: &resource_url "https://github.com/tommyliverani/highway-to-cloud.git"
-    resource_repo_path: &resource_path "./resources"
-
   parameters:
     - title: Dettagli del Bucket
       required:
@@ -26,23 +22,21 @@ spec:
 
   steps:
 
-steps:
-
-  - id: clone-remote-repo
-    name: Clonazione repository sorgente
-    action: fetch:plain
-    input:
-      url: *resource_url
-      targetPath: *resource_path
+    - id: clone-remote-repo
+      name: Clonazione repository sorgente
+      action: fetch:plain
+      input:
+        url: https://github.com/tommyliverani/highway-to-cloud.git
+        targetPath: ./resources
 
 
-  - id: init-git
-    name: Inizializzazione repository Git locale
-    action: shell:command
-    input:
-      command: |
-        git init
-        git remote add origin https://github.com/tommyliverani/highway-to-cloud.git
-        git fetch origin
-        git checkout -b feature/${{ context.task.id }}-${{ parameters.bucketName }}
-      workingDirectory: *resource_path
+    - id: init-git
+      name: Inizializzazione repository Git locale
+      action: shell:command
+      input:
+        command: |
+          git init
+          git remote add origin https://github.com/tommyliverani/highway-to-cloud.git
+          git fetch origin
+          git checkout -b feature/${{ context.task.id }}-${{ parameters.bucketName }}
+        workingDirectory: ./resources
