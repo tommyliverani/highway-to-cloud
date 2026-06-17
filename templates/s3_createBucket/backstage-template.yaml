@@ -1,20 +1,18 @@
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
+
 metadata:
   name: create-s3-bucket
   title: AWS S3 Create bucket
   description: Automatizza la creazione di un bucket S3 su AWS
+
 spec:
   owner: team-platform
   type: infrastructure
 
   _config:
     resource_repo_url: &resource_url "https://github.com/tommyliverani/highway-to-cloud.git"
-    resource_repo_subpath: &resource_subpath "./resources"
     resource_repo_path: &resource_path "./resources"
-    template_repo_url: &template_url "https://github.com/tommyliverani/highway-to-cloud.git"
-    template_repo_path: &template_path "./templates"
-    template_repo_subpath: &template_subpath "./templates/s3_createBucket"
 
   parameters:
     - title: Dettagli del Bucket
@@ -27,12 +25,14 @@ spec:
           description: Verrà validato secondo le convenzioni AWS.
 
   steps:
+
     - id: clone-remote-repo
-      name: Clonazione del Repository Sorgente
-      action: fetch:plain
+      name: Clonazione repository Git
+      action: git:clone
       input:
         url: *resource_url
         targetPath: *resource_path
+
 
     - id: create-local-branch
       name: Creazione branch locale
@@ -40,13 +40,4 @@ spec:
       input:
         command: |
           git checkout -b feature/${{ context.task.id }}-${{ parameters.bucketName }}
-        workingDirectory: *resource_repo_path
-
-
-    # Esempio per il secondo repository pronto all'uso
-    # - id: clone-template-repo
-    #   name: Clonazione dei Template di Supporto
-    #   action: fetch:plain
-    #   input:
-    #     url: *template_url
-    #     targetPath: *template_path
+        workingDirectory: *resource_path
