@@ -38,7 +38,7 @@ spec:
 
     - id: generate-bucket-files
       name: Generate bucket files
-     action: fetch:template
+      action: fetch:template
       input:
         url: ./templates
         targetPath: ./resources/${{ parameters.bucketName }}
