@@ -8,7 +8,6 @@ spec:
   owner: team-platform
   type: infrastructure
 
-  # 1. PARAMETRI DEL FORM UI
   parameters:
     - title: Dettagli del Bucket
       required:
