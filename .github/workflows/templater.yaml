@@ -1,4 +1,4 @@
-name: Execute Operation from Backstage
+name: Templater
 
 on:
   workflow_dispatch:
@@ -17,32 +17,35 @@ on:
         type: string
 
 jobs:
-  execute-template-copy:
+  templater:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Clona il repository usando lo strumento nativo dell'host
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2) Copia i file usando i percorsi relativi standard di Ubuntu
       - name: Copy template assets
-        run: |
-          SRC_DIR="./templates/${{ github.event.inputs.operation_id }}"
-          DEST_DIR="./resources/${{ github.event.inputs.resource_id }}"
-          
-          echo "Checking if source directory exists: $SRC_DIR"
-          if [ ! -d "$SRC_DIR" ]; then
-            echo "::error::Source directory $SRC_DIR does not exist!"
-            exit 1
-          fi
+              run: |
+                SRC_DIR="./templates/${{ github.event.inputs.operation_id }}"
+                DEST_DIR="./resources/${{ github.event.inputs.resource_id }}"
+                
+                if [ ! -d "$SRC_DIR" ]; then
+                  echo "::error::Source directory $SRC_DIR does not exist!"
+                  exit 1
+                fi
 
-          echo "Creating destination directory: $DEST_DIR"
-          mkdir -p "$DEST_DIR"
+                echo "Creating destination directory: $DEST_DIR"
+                mkdir -p "$DEST_DIR"
 
-          echo "Copying contents..."
-          cp -r $SRC_DIR/. $DEST_DIR/
+                echo "Copying only subdirectories from $SRC_DIR..."
+                for item in "$SRC_DIR"/*; do
+                  if [ -d "$item" ]; then
+                    echo "Copying directory: $(basename "$item")"
+                    cp -r "$item" "$DEST_DIR/"
+                  fi
+                done
 
-          echo "Copy completed successfully!"
-          echo "Current contents of $DEST_DIR:"
-          ls -la "$DEST_DIR"
+                echo "Process completed!"
+                echo "Current contents of $DEST_DIR:"
+                ls -la "$DEST_DIR"
