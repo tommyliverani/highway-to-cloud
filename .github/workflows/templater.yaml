@@ -17,7 +17,7 @@ on:
         type: string
 
 jobs:
-  templater:
+  execute-template-copy:
     runs-on: ubuntu-latest
 
     steps:
@@ -36,8 +36,7 @@ jobs:
                 fi
 
                 echo "Creating destination directory: $DEST_DIR"
-                mkdir -p "$DEST_DIR"
-
+                mkdir -p "$DEST_DIR
                 echo "Copying only subdirectories from $SRC_DIR..."
                 for item in "$SRC_DIR"/*; do
                   if [ -d "$item" ]; then
