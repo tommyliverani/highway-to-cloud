@@ -58,7 +58,6 @@ jobs:
           INT_DIR="./interfaces/${{ github.event.inputs.operation_id }}"
           CONTEXT_FILE="/tmp/context.json"
           
-          # Inizializza l'oggetto JSON vuoto correttamente
           echo "{}" > "$CONTEXT_FILE"
           
           if [ -d "$INT_DIR" ]; then
@@ -78,7 +77,7 @@ jobs:
           echo '${{ github.event.inputs.backstage_params }}' > /tmp/params.json
           yq eval -o=json '.parameters = load("/tmp/params.json")' -i "$CONTEXT_FILE"
 
-      # 5) Render Nunjucks (.njk) templates into actual .yaml files
+      # 5) Render Nunjucks (.njk) templates into actual .yaml files using native CLI flags
       - name: Render Nunjucks templates
         run: |
           SRC_DIR="./templates/${{ github.event.inputs.operation_id }}"
@@ -87,16 +86,19 @@ jobs:
 
           echo "Rendering Backstage Nunjucks templates..."
 
-          # Render catalog-info.njk -> catalog-info.yaml
+          # Usiamo i parametri nativi della CLI per evitare il bug di path.resolve:
+          # -d specifica il file del contesto (data)
+          # -o specifica la cartella di output
+          # -e forza l'estensione finale in .yaml invece di ereditare .njk
+          
           if [ -f "$SRC_DIR/catalog-info.njk" ]; then
             echo "Rendering catalog-info.njk"
-            nunjucks "$SRC_DIR/catalog-info.njk" --data "$CONTEXT_FILE" > "$DEST_DIR/catalog-info.yaml"
+            nunjucks "$SRC_DIR/catalog-info.njk" -d "$CONTEXT_FILE" -o "$DEST_DIR" -e yaml
           fi
 
-          # Render variables.njk -> variables.yaml
           if [ -f "$SRC_DIR/variables.njk" ]; then
             echo "Rendering variables.njk"
-            nunjucks "$SRC_DIR/variables.njk" --data "$CONTEXT_FILE" > "$DEST_DIR/variables.yaml"
+            nunjucks "$SRC_DIR/variables.njk" -d "$CONTEXT_FILE" -o "$DEST_DIR" -e yaml
           fi
 
           echo "Rendering completed! Final target directory structure:"
