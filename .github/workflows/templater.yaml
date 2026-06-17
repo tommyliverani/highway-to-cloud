@@ -1,4 +1,4 @@
-name: Templater
+name: Execute Operation from Backstage
 
 on:
   workflow_dispatch:
@@ -31,33 +31,58 @@ jobs:
           SRC_DIR="./templates/${{ github.event.inputs.operation_id }}"
           DEST_DIR="./resources/${{ github.event.inputs.resource_id }}"
           
-          echo "Checking if source directory exists: $SRC_DIR"
           if [ ! -d "$SRC_DIR" ]; then
             echo "::error::Source directory $SRC_DIR does not exist!"
             exit 1
           fi
 
-          echo "Creating destination directory: $DEST_DIR"
           mkdir -p "$DEST_DIR"
 
-          echo "Scanning $SRC_DIR for subdirectories..."
-          # Loop through all items inside the source directory
           for item in "$SRC_DIR"/*; do
-            # Check if the item is a directory
             if [ -d "$item" ]; then
-              echo "Copying directory: $(basename "$item")"
               cp -r "$item" "$DEST_DIR/"
             fi
           done
 
-          echo "Copy completed successfully!"
-          echo "Current contents of $DEST_DIR:"
-          ls -la "$DEST_DIR"
-
-      # 3) Optional debug step to verify input parameters
-      - name: Log operation metadata
+      # 3) Aggregate interface variables and merge input JSON parameters
+      - name: Aggregate interfaces and parameters
         run: |
-          echo "Operation $OPERATION_ID completed for resource $RESOURCE_ID."
-        env:
-          OPERATION_ID: ${{ github.event.inputs.operation_id }}
-          RESOURCE_ID: ${{ github.event.inputs.resource_id }}
+          INT_DIR="./interfaces/${{ github.event.inputs.operation_id }}"
+          OUTPUT_FILE="./resources/${{ github.event.inputs.resource_id }}/merged-config.yaml"
+          
+          echo "Initializing empty output YAML file..."
+          echo "{}" > "$OUTPUT_FILE"
+          
+          if [ -d "$INT_DIR" ]; then
+            echo "Scanning interfaces in: $INT_DIR"
+            
+            # Cicliamo su ogni sotto-directory (l'interfaceId)
+            for sub_dir in "$INT_DIR"/*; do
+              if [ -d "$sub_dir" ]; then
+                INTERFACE_ID=$(basename "$sub_dir")
+                VAR_FILE="$sub_dir/variables.yaml"
+                
+                if [ -f "$VAR_FILE" ]; then
+                  echo "Processing interface: $INTERFACE_ID"
+                  
+                  # Usiamo yq per inserire dinamicamente il contenuto di variables.yaml sotto la chiave INTERFACE_ID
+                  yq eval ". $INTERFACE_ID = load(\"$VAR_FILE\")" -i "$OUTPUT_FILE"
+                else
+                  echo "::warning::File $VAR_FILE not found, skipping."
+                fi
+              fi
+            done
+          else
+            echo "::warning::Interfaces directory $INT_DIR does not exist. Skipping interfaces loop."
+          fi
+
+          # 4) Aggiungiamo la chiave 'parameters' inserendo l'input JSON (riconvertito in oggetto YAML)
+          echo "Appending Backstage input parameters..."
+          echo '${{ github.event.inputs.backstage_params }}' > /tmp/params.json
+          
+          # yq legge il JSON e lo unisce come un vero oggetto strutturato sotto la chiave 'parameters'
+          yq eval ".parameters = load_json(\"/tmp/params.json\")" -i "$OUTPUT_FILE"
+
+          echo "Aggregation completed successfully!"
+          echo "=== Final Output File Content ==="
+          cat "$OUTPUT_FILE"
