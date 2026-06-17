@@ -29,5 +29,5 @@ spec:
       name: Clonazione del Repository Sorgente
       action: fetch:plain
       input:
-        url: ${{ constants.resource_repo_url }}
-        targetPath: ${{ constants.resource_repo_path }}
+        url: '${{ spec.constants.resource_repo_url }}'
+        targetPath: '${{ spec.constants.resource_repo_path }}'
