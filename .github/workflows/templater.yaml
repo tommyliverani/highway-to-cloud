@@ -56,17 +56,17 @@ jobs:
           if [ -d "$INT_DIR" ]; then
             echo "Scanning interfaces in: $INT_DIR"
             
-            # Cicliamo su ogni sotto-directory (l'interfaceId)
             for sub_dir in "$INT_DIR"/*; do
               if [ -d "$sub_dir" ]; then
-                INTERFACE_ID=$(basename "$sub_dir")
-                VAR_FILE="$sub_dir/variables.yaml"
+                # Esportiamo le variabili d'ambiente per renderle visibili a yq
+                export INTERFACE_ID=$(basename "$sub_dir")
+                export VAR_FILE="$sub_dir/variables.yaml"
                 
                 if [ -f "$VAR_FILE" ]; then
                   echo "Processing interface: $INTERFACE_ID"
                   
-                  # Usiamo yq per inserire dinamicamente il contenuto di variables.yaml sotto la chiave INTERFACE_ID
-                  yq eval ". $INTERFACE_ID = load(\"$VAR_FILE\")" -i "$OUTPUT_FILE"
+                  # Usiamo strenv() per passare le variabili in modo sicuro a yq
+                  yq eval '.[strenv(INTERFACE_ID)] = load(strenv(VAR_FILE))' -i "$OUTPUT_FILE"
                 else
                   echo "::warning::File $VAR_FILE not found, skipping."
                 fi
@@ -76,12 +76,11 @@ jobs:
             echo "::warning::Interfaces directory $INT_DIR does not exist. Skipping interfaces loop."
           fi
 
-          # 4) Aggiungiamo la chiave 'parameters' inserendo l'input JSON (riconvertito in oggetto YAML)
+          # 4) Append the 'parameters' key from the Backstage JSON input
           echo "Appending Backstage input parameters..."
           echo '${{ github.event.inputs.backstage_params }}' > /tmp/params.json
           
-          # yq legge il JSON e lo unisce come un vero oggetto strutturato sotto la chiave 'parameters'
-          yq eval ".parameters = load_json(\"/tmp/params.json\")" -i "$OUTPUT_FILE"
+          yq eval '.parameters = load_json("/tmp/params.json")' -i "$OUTPUT_FILE"
 
           echo "Aggregation completed successfully!"
           echo "=== Final Output File Content ==="
