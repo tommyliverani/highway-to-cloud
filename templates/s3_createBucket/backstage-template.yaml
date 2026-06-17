@@ -40,9 +40,8 @@ spec:
       name: Generate bucket files
       action: fetch:template
       input:
-        url: ./templates
+        url: ./templates/s3_createBucket/bucket
         targetPath: ./resources/${{ parameters.bucketName }}
-        subpath: bucket
         values:
           bucketName: ${{ parameters.bucketName }}
     
