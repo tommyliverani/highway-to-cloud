@@ -16,6 +16,10 @@ on:
         required: true
         type: string
 
+# Permesso di scrittura sui contenuti del repo per poter fare il push del codice
+permissions:
+  contents: write
+
 jobs:
   templater:
     runs-on: ubuntu-latest
@@ -89,10 +93,8 @@ jobs:
           const destDir = "./resources/${{ github.event.inputs.resource_id }}";
           const context = JSON.parse(fs.readFileSync("/tmp/context.json", "utf8"));
 
-          // Inizializza l&apos;environment di Nunjucks
           const env = njk.configure(srcDir, { autoescape: false });
 
-          // Mock dei filtri stringa di Backstage per non far fallire il rendering
           env.addFilter("kebabCase", (str) => {
             if (!str) return "";
             return str.toString().trim()
@@ -129,8 +131,23 @@ jobs:
           });
           '
 
-      # 6) Verify Output Structure
-      - name: Verify output
+      # 6) Configure Git, commit changes, and push back to the repository
+      - name: Git Push Changes
         run: |
-          echo "Final target directory structure:"
-          ls -la "./resources/${{ github.event.inputs.resource_id }}"
+          # Configura l'utente Git usando il bot di GitHub Actions
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Tracciamo i file dentro resources
+          git add ./resources/
+          
+          # Verifichiamo se ci sono modifiche reali per evitare che il commit fallisca
+          if git diff-index --quiet HEAD --; then
+            echo "No changes detected. Skipping push."
+          else
+            echo "Changes detected, committing..."
+            git commit -m "chore: executed operation ${{ github.event.inputs.operation_id }} for ${{ github.event.inputs.resource_id }}"
+            
+            echo "Pushing changes to branch..."
+            git push origin HEAD:${{ github.ref_name }}
+          fi
