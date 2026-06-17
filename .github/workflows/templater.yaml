@@ -21,14 +21,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Clone the current repository
+      # 1) Clona il repository usando lo strumento nativo dell'host
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2) Copy the directories from ./templates/operation_id to resources/resource_id
+      # 2) Copia i file usando i percorsi relativi standard di Ubuntu
       - name: Copy template assets
         run: |
-          # Define source and destination paths based on inputs
           SRC_DIR="./templates/${{ github.event.inputs.operation_id }}"
           DEST_DIR="./resources/${{ github.event.inputs.resource_id }}"
           
@@ -38,11 +37,10 @@ jobs:
             exit 1
           fi
 
-          echo "Creating destination directory (if it does not exist): $DEST_DIR"
+          echo "Creating destination directory: $DEST_DIR"
           mkdir -p "$DEST_DIR"
 
-          echo "Copying contents from $SRC_DIR to $DEST_DIR..."
-          # The cp -r command with /. copies all files and subdirectories recursively
+          echo "Copying contents..."
           cp -r $SRC_DIR/. $DEST_DIR/
 
           echo "Copy completed successfully!"
