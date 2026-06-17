@@ -22,21 +22,32 @@ spec:
 
   steps:
 
-    - id: clone-remote-repo
+    - id: clone-resource-repo
       name: Clonazione repository sorgente
       action: fetch:plain
       input:
         url: https://github.com/tommyliverani/highway-to-cloud.git
         targetPath: ./resources
-
-
-    - id: init-git
-      name: Inizializzazione repository Git locale
-      action: shell:command
+    
+    - id: clone-template-repo
+      name: Clonazione repository template
+      action: fetch:plain
       input:
-        command: |
-          git init
-          git remote add origin https://github.com/tommyliverani/highway-to-cloud.git
-          git fetch origin
-          git checkout -b feature/${{ context.task.id }}-${{ parameters.bucketName }}
-        workingDirectory: ./resources
+        url: https://github.com/tommyliverani/highway-to-cloud.git
+        targetPath: ./templates
+
+    
+
+    
+
+
+    # - id: create-pr
+    #   name: Creazione Pull Request
+    #   action: publish:github:pull-request
+    #   input:
+    #     repoUrl: github.com?owner=tommyliverani&repo=highway-to-cloud
+    #     branchName: feature/${{ context.task.id }}-${{ parameters.bucketName }}
+    #     title: "Create S3 bucket ${{ parameters.bucketName }}"
+    #     description: |
+    #       Creata automaticamente da Backstage.
+    #       Task: ${{ context.task.id }}
