@@ -134,7 +134,14 @@ jobs:
           });
           '
 
-      # 6) Create and Open a Pull Request on GitHub using a feature branch
+      # 6) Clean up Node modules and temporary files to prevent them from entering the PR
+      - name: Clean workspace dependencies
+        run: |
+          echo "Cleaning up node_modules and package files..."
+          rm -rf node_modules
+          rm -f package.json package-lock.json
+
+      # 7) Create and Open a Pull Request on GitHub using a feature branch
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
