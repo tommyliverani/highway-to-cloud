@@ -7,9 +7,6 @@ on:
         description: 'Operation ID (matches the folder name inside ./templates)'
         required: true
         type: string
-      resource_kind_id:
-        description: 'Target Resource Kind ID (matches the folder name inside ./templates)'
-        type: string
       backstage_params:
         description: 'JSON string containing Backstage input parameters'
         required: true
@@ -83,9 +80,14 @@ jobs:
 
           const srcDir = "./templates/${{ github.event.inputs.operation_id }}";
           const destDir = "./resources/${{ github.event.inputs.resource_id }}";
+          const destVariablesPath = path.join(destDir, "variables.yaml");
           const rawContext = JSON.parse(fs.readFileSync("/tmp/context.json", "utf8"));
 
           fs.mkdirSync(destDir, { recursive: true });
+
+          const existingValues = fs.existsSync(destVariablesPath)
+            ? (yaml.load(fs.readFileSync(destVariablesPath, "utf8")) || {})
+            : {};
 
           // Risolviamo i typo mappando le variabili in un contesto piatto
           const parameters = rawContext.parameters || {};
@@ -99,7 +101,8 @@ jobs:
             prameters: parameters, // Mappa il typo {{ prameters.title }} in catalog-info.njk
             platform,
             security,
-            secuirty               // Mappa il typo {{ secuirty.kms_key }} in variables.njk
+            secuirty,              // Mappa il typo {{ secuirty.kms_key }} in variables.njk
+            values: existingValues
           };
 
           const env = njk.configure(srcDir, { autoescape: false });
@@ -123,7 +126,20 @@ jobs:
             return str.toString().trim().replace(/([a-z])([A-Z])/g, "$1_$2").replace(/[\s-]+/g, "_").toLowerCase();
           });
 
-          const templates = ["catalog-info.njk", "variables.njk"];
+          const hasSourceCatalogInfo = fs.existsSync(path.join(srcDir, "catalog-info.njk"));
+          const hasSourceVariablesTemplate = fs.existsSync(path.join(srcDir, "variables.njk"));
+          const hasSourceVariablesFile = fs.existsSync(path.join(srcDir, "variables.yaml"));
+          const templates = [];
+
+          if (hasSourceVariablesTemplate) {
+            templates.push("variables.njk");
+          }
+
+          if (hasSourceCatalogInfo) {
+            templates.unshift("catalog-info.njk");
+          } else {
+            console.log("catalog-info.njk not found in source template, skipping catalog-info rendering and building block copy.");
+          }
 
           templates.forEach(file => {
             const srcPath = path.join(srcDir, file);
@@ -136,71 +152,78 @@ jobs:
             }
           });
 
-          const catalogInfoPath = path.join(destDir, "catalog-info.yaml");
-          if (!fs.existsSync(catalogInfoPath)) {
-            throw new Error(`Generated catalog-info.yaml not found in ${destDir}`);
+          if (!hasSourceVariablesTemplate && hasSourceVariablesFile) {
+            console.log("variables.njk not found, copying variables.yaml from source template.");
+            fs.copyFileSync(path.join(srcDir, "variables.yaml"), destVariablesPath);
           }
 
-          const catalogInfo = yaml.load(fs.readFileSync(catalogInfoPath, "utf8")) || {};
-          const metadata = catalogInfo.metadata || {};
-          const declaredBlocks = metadata.building_blocks || metadata.builcing_blocks || metadata.build_blocks || [];
+          if (hasSourceCatalogInfo) {
+            const catalogInfoPath = path.join(destDir, "catalog-info.yaml");
+            if (!fs.existsSync(catalogInfoPath)) {
+              throw new Error(`Generated catalog-info.yaml not found in ${destDir}`);
+            }
 
-          if (!Array.isArray(declaredBlocks)) {
-            throw new Error("metadata.building_blocks must be an array");
-          }
+            const catalogInfo = yaml.load(fs.readFileSync(catalogInfoPath, "utf8")) || {};
+            const metadata = catalogInfo.metadata || {};
+            const declaredBlocks = metadata.building_blocks || metadata.builcing_blocks || metadata.build_blocks || [];
 
-          const copyDirectory = (sourceDir, targetDir) => {
-            fs.mkdirSync(targetDir, { recursive: true });
-            for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
-              const sourcePath = path.join(sourceDir, entry.name);
-              const targetPath = path.join(targetDir, entry.name);
-              if (entry.isDirectory()) {
-                copyDirectory(sourcePath, targetPath);
-              } else {
-                fs.copyFileSync(sourcePath, targetPath);
+            if (!Array.isArray(declaredBlocks)) {
+              throw new Error("metadata.building_blocks must be an array");
+            }
+
+            const copyDirectory = (sourceDir, targetDir) => {
+              fs.mkdirSync(targetDir, { recursive: true });
+              for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+                const sourcePath = path.join(sourceDir, entry.name);
+                const targetPath = path.join(targetDir, entry.name);
+                if (entry.isDirectory()) {
+                  copyDirectory(sourcePath, targetPath);
+                } else {
+                  fs.copyFileSync(sourcePath, targetPath);
+                }
               }
-            }
-          };
+            };
 
-          const normalizeRepoPath = (repoPath) => {
-            if (!repoPath) {
-              return "";
-            }
-            return repoPath.replace(/^\/+/, "").replace(/^\.\//, "");
-          };
+            const normalizeRepoPath = (repoPath) => {
+              if (!repoPath) {
+                return "";
+              }
+              return repoPath.replace(/^\/+/, "").replace(/^\.\//, "");
+            };
 
-          declaredBlocks.forEach((block, index) => {
-            if (!block || typeof block !== "object") {
-              throw new Error(`Building block at index ${index} is invalid`);
-            }
+            declaredBlocks.forEach((block, index) => {
+              if (!block || typeof block !== "object") {
+                throw new Error(`Building block at index ${index} is invalid`);
+              }
 
-            const subpathValue = block.subpath || block.target_subpath;
-            const sourceRepoPath = normalizeRepoPath(block.source_repo_path || block.repo_path);
-            const sourceRepoUrl = block.source_repo_url || block.repo_url || "";
+              const subpathValue = block.subpath || block.target_subpath;
+              const sourceRepoPath = normalizeRepoPath(block.source_repo_path || block.repo_path);
+              const sourceRepoUrl = block.source_repo_url || block.repo_url || "";
 
-            if (!subpathValue) {
-              throw new Error(`Building block at index ${index} is missing subpath`);
-            }
+              if (!subpathValue) {
+                throw new Error(`Building block at index ${index} is missing subpath`);
+              }
 
-            if (!sourceRepoPath) {
-              throw new Error(`Building block at index ${index} is missing source_repo_path`);
-            }
+              if (!sourceRepoPath) {
+                throw new Error(`Building block at index ${index} is missing source_repo_path`);
+              }
 
-            const normalizedSubpath = subpathValue.replace(/^\.\//, "").replace(/^\/+/, "");
-            const sourceDir = path.resolve(process.cwd(), sourceRepoPath);
-            const targetDir = path.resolve(destDir, normalizedSubpath);
+              const normalizedSubpath = subpathValue.replace(/^\.\//, "").replace(/^\/+/, "");
+              const sourceDir = path.resolve(process.cwd(), sourceRepoPath);
+              const targetDir = path.resolve(destDir, normalizedSubpath);
 
-            if (sourceRepoUrl && !sourceRepoUrl.includes("highway-to-cloud")) {
-              throw new Error(`Unsupported source_repo_url for building block ${sourceRepoUrl}`);
-            }
+              if (sourceRepoUrl && !sourceRepoUrl.includes("highway-to-cloud")) {
+                throw new Error(`Unsupported source_repo_url for building block ${sourceRepoUrl}`);
+              }
 
-            if (!fs.existsSync(sourceDir) || !fs.statSync(sourceDir).isDirectory()) {
-              throw new Error(`Building block source directory not found: ${sourceDir}`);
-            }
+              if (!fs.existsSync(sourceDir) || !fs.statSync(sourceDir).isDirectory()) {
+                throw new Error(`Building block source directory not found: ${sourceDir}`);
+              }
 
-            console.log(`Copying building block ${sourceRepoPath} to ${targetDir}`);
-            copyDirectory(sourceDir, targetDir);
-          });
+              console.log(`Copying building block ${sourceRepoPath} to ${targetDir}`);
+              copyDirectory(sourceDir, targetDir);
+            });
+          }
           '
 
       # 5) Clean up Node modules and temporary files
