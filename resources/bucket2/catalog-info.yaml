@@ -1,0 +1,15 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: bucket2
+  title: 
+  description: d1
+  technology: terraform
+  tags:
+    - aws
+    - s3
+    - storage
+spec:
+  type: s3-bucket
+  owner: guest
+  lifecycle: production
