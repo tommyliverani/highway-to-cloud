@@ -105,7 +105,20 @@ jobs:
             values: existingValues
           };
 
-          const env = njk.configure(srcDir, { autoescape: false });
+          const env = njk.configure(srcDir, {
+            autoescape: false,
+            trimBlocks: true,
+            lstripBlocks: true
+          });
+
+          const removeBlankLines = (content) => {
+            const normalized = content
+              .split(/\r?\n/)
+              .filter((line) => line.trim() !== "")
+              .join("\n");
+
+            return normalized === "" ? normalized : `${normalized}\n`;
+          };
 
           // Filtro kebabCase per il metadata.name di catalog-info.njk
           env.addFilter("kebabCase", (str) => {
@@ -145,7 +158,7 @@ jobs:
             const srcPath = path.join(srcDir, file);
             if (fs.existsSync(srcPath)) {
               console.log(`Rendering ${file}...`);
-              const rendered = env.render(file, context);
+              const rendered = removeBlankLines(env.render(file, context));
               
               const outputName = file.replace(".njk", ".yaml");
               fs.writeFileSync(path.join(destDir, outputName), rendered);
