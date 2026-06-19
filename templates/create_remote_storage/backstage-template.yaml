@@ -15,7 +15,6 @@ spec:
       required:
         - name
         - title
-        - templateId
       properties:
         name:
           title: Nome dello Storage
