@@ -1,4 +1,4 @@
-name: terraform-deployer
+name: templater
 
 
 on:
@@ -29,7 +29,7 @@ permissions:
 jobs:
 
 
-  terraform-deploy:
+  templater:
 
 
     runs-on: ubuntu-latest
