@@ -3,8 +3,9 @@ kind: Resource
 metadata:
   name: {{ values.metadata.name | kebabCase }}
   title: {{ values.metadata.title }}
+{% if values.metadata.descripion == "aws" %}
   description: {{ values.metadata.description }}
-
+  {% endif %}
   build_blocks:
     - subpath: ./vm
       technology: terraform

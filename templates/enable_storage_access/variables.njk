@@ -1,3 +1,7 @@
+{# old values #}
+{% for key, value in values %}
+{{ key }}: {{ value }}
+{% endfor %}
 inline_policy_statements:
   - Sid: "S3BucketListAndLocation"
     Effect: "Allow"
