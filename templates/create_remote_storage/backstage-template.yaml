@@ -13,59 +13,34 @@ spec:
   parameters:
     - title: Dettagli dello Storage
       required:
-        - storageName
+        - name
+        - title
+        - templateId
       properties:
-        storageName:
+        name:
           title: Nome dello Storage
           type: string
-          description: Verrà validato secondo le convenzioni AWS.
+          description: Deve corrispondere alla directory sotto resources/ da processare.
+        title:
+          title: Titolo dello Storage
+          type: string
+          description: Titolo leggibile usato nel catalogo Backstage.
+        description:
+          title: Descrizione
+          type: string
+          description: Descrizione opzionale della risorsa.
 
   steps:
-
-    - id: clone-resource-repo
-      name: Clone resources repository
-      action: fetch:plain
+    - id: run-templater-workflow
+      name: Run templater workflow
+      action: github:actions:dispatch
       input:
-        url: https://github.com/tommyliverani/highway-to-cloud.git
-        targetPath: ./resources
-    
-    - id: clone-template-repo
-      name: Clone template repository
-      action: fetch:plain
-      input:
-        url: https://github.com/tommyliverani/highway-to-cloud.git
-        targetPath: ./templates
-
-    - id: generate-storage-files
-      name: Generate storage files
-      action: fetch:template
-      input:
-        url: ./templates/s3_bucket
-        targetPath: ./resources/${{ parameters.storageName }}
-        values:
-          storageName: ${{ parameters.storageName }}
-    
-    - id: generate-storage-vars
-      name: Generate storage variables
-      action: fetch:template
-      input:
-        url: ./templates/s3_bucket
-        targetPath: ./resources/${{ parameters.storageName }}
-        values:
-          storageName: ${{ parameters.storageName }}
-
-    
-
-    
-
-
-    # - id: create-pr
-    #   name: Creazione Pull Request
-    #   action: publish:github:pull-request
-    #   input:
-    #     repoUrl: github.com?owner=tommyliverani&repo=highway-to-cloud
-    #     branchName: feature/${{ context.task.id }}-${{ parameters.bucketName }}
-    #     title: "Create S3 bucket ${{ parameters.bucketName }}"
-    #     description: |
-    #       Creata automaticamente da Backstage.
-    #       Task: ${{ context.task.id }}
+        repoUrl: github.com?owner=tommyliverani&repo=highway-to-cloud
+        workflowId: templater.yaml
+        branchOrTagName: main
+        workflowInputs:
+          operation_id: create_remote_storage
+          resource_kind_id: s3_bucket
+          resource_id: ${{ parameters.name }}
+          backstage_params: >-
+            {"name":"${{ parameters.name }}","title":"${{ parameters.title }}","description":"${{ parameters.description }}"}
