@@ -1,9 +1,18 @@
+
+{# AWS #}
+
 {% if values.provider == "aws" %}
 object_lock_enabled: true
 object_lock_retention_type: GOVERNANCE
 object_lock_retention_days: {{ parameters.retention_days }}
 
+{# GCP  #}
 {% elif values.provider == "gcp" %}
 retention_policy_enabled: true
 retention_policy_days: {{ parameters.retention_days }}
 {% endif %}
+
+{# old values #}
+{% for key, value in values %}
+{{ key }}: {{ value }}
+{% endfor %}

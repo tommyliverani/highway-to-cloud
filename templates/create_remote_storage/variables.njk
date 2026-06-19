@@ -1,9 +1,15 @@
+{# Parameters#}
 name: {{ parameters.name }}
 title: {{ parameters.title }}
 description: {{ parameters.description }}
+
+{# Platform #}
 force_destroy: {{ platform.force_destroy }}
 region: {{ platform.region }}
 account_id: {{ platform.account_id }}
+provider: aws
+
+{# Security #}
 kms_key: {{ secuirty.kms_key }}
 kms_sse_alg: {{ secuirty.kms_sse_alg }}
-provider: aws
+
