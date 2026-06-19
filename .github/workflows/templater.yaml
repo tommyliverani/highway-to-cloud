@@ -7,6 +7,10 @@ on:
         description: 'Operation ID (matches the folder name inside ./templates)'
         required: true
         type: string
+      resource_kind_id:
+        description: 'Target Resource Kind ID (matches the folder name inside ./templates)'
+        required: true
+        type: string
       backstage_params:
         description: 'JSON string containing Backstage input parameters'
         required: true
@@ -40,9 +44,9 @@ jobs:
       # 3) Copy ONLY the subdirectories to the resource folder
       - name: Copy template directories only
         run: |
-          SRC_DIR="./templates/${{ github.event.inputs.operation_id }}"
+          SRC_DIR="./templates/${{ github.event.inputs.resource_kind_id }}"
           DEST_DIR="./resources/${{ github.event.inputs.resource_id }}"
-          
+
           if [ ! -d "$SRC_DIR" ]; then
             echo "::error::Source directory $SRC_DIR does not exist!"
             exit 1
@@ -52,6 +56,7 @@ jobs:
 
           for item in "$SRC_DIR"/*; do
             if [ -d "$item" ]; then
+              echo "Copying directory $(basename "$item")"
               cp -r "$item" "$DEST_DIR/"
             fi
           done
