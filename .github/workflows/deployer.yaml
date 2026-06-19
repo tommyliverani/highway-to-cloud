@@ -1,8 +1,6 @@
-name: terraform-deployer
-
+name: terraform-apply-pr
 
 on:
-
   workflow_dispatch:
 
     inputs:
@@ -12,10 +10,10 @@ on:
         required: true
         type: string
 
-
-      resource_id:
-        description: 'Resource folder inside ./resources'
-        required: true
+      terraform_path:
+        description: 'Path containing Terraform files'
+        required: false
+        default: '.'
         type: string
 
 
@@ -25,21 +23,18 @@ permissions:
   pull-requests: write
 
 
-
 jobs:
 
-
-  terraform-deploy:
+  terraform-apply:
 
 
     runs-on: ubuntu-latest
 
 
-
     steps:
 
 
-      # 1) Recupera commit della PR
+      # 1) Recupera informazioni PR
       - name: Get Pull Request information
         id: pr
         uses: actions/github-script@v7
@@ -67,7 +62,8 @@ jobs:
             );
 
 
-      # 2) Checkout codice della PR
+
+      # 2) Checkout codice PR
       - name: Checkout PR code
 
         uses: actions/checkout@v4
@@ -87,75 +83,38 @@ jobs:
 
 
 
-      # 4) Install yq per convertire yaml -> json
-      - name: Install yq
+      # 4) Check AWS credentials
+      - name: Check AWS credentials
+
+        env:
+
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ADMIN_ACCESS_KEY }}
+
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.ADMIN_SECRET_ACCESS_KEY }}
+
 
         run: |
 
-          sudo snap install yq
-
-
-
-      # 5) Prepara variabili Terraform
-      - name: Prepare Terraform variables
-
-        working-directory: ./resources/${{ github.event.inputs.resource_id }}
-
-        run: |
-
-
-          if [ ! -f "variables.yaml" ]; then
-
-            echo "::error::variables.yaml not found"
-
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "::error::AWS_ADMIN_ACCESS_KEY missing"
             exit 1
-
           fi
 
 
-
-          echo "Converting variables.yaml to JSON"
-
-
-          yq eval -o=json variables.yaml > terraform-vars.json
-
+          if [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "::error::ADMIN_SECRET_ACCESS_KEY missing"
+            exit 1
+          fi
 
 
-          echo "Generated terraform-vars.json"
-
-
-          cat terraform-vars.json
+          echo "AWS credentials configured"
 
 
 
-          echo "Export terraform variables"
-
-
-
-          while IFS="=" read -r key value
-
-          do
-
-            echo "$key=$value" >> $GITHUB_ENV
-
-          done < <(
-
-            jq -r '
-
-            to_entries[]
-
-            | "TF_VAR_\(.key)=\(.value)"
-
-            ' terraform-vars.json
-
-          )
-
-
-
-      # 6) Terraform init
+      # 5) Terraform Init
       - name: Terraform Init
 
-        working-directory: ./resources/${{ github.event.inputs.resource_id }}
+        working-directory: ${{ github.event.inputs.terraform_path }}
 
         env:
 
@@ -170,10 +129,10 @@ jobs:
 
 
 
-      # 7) Terraform apply
+      # 6) Terraform Apply
       - name: Terraform Apply
 
-        working-directory: ./resources/${{ github.event.inputs.resource_id }}
+        working-directory: ${{ github.event.inputs.terraform_path }}
 
         env:
 
@@ -185,22 +144,20 @@ jobs:
         run: |
 
           terraform apply \
-          -auto-approve
+            -auto-approve
 
 
 
-      # 8) Chiudi PR dopo deploy riuscito
-      - name: Close Pull Request
+      # 7) Chiudi PR se il deploy è riuscito
+      - name: Close Pull Request after successful deploy
 
         if: success()
 
         uses: actions/github-script@v7
 
-
         with:
 
           script: |
-
 
             const prNumber = Number(
               context.payload.inputs.pull_request_number
@@ -221,5 +178,5 @@ jobs:
 
 
             console.log(
-              `PR #${prNumber} closed after successful deployment`
+              `Pull Request #${prNumber} closed after successful terraform apply`
             );
