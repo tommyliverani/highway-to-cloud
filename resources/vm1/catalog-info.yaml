@@ -3,6 +3,7 @@ kind: Resource
 metadata:
   name: 
   title: 
+  description: 
   build_blocks:
     - subpath: ./vm
       technology: terraform
@@ -16,3 +17,5 @@ spec:
   type: vm
   owner: guest
   lifecycle: production
+  dependsOn:
+    - resource:default/bucket1
