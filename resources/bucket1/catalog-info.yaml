@@ -2,8 +2,8 @@ apiVersion: backstage.io/v1alpha1
 kind: Resource
 metadata:
   name: bucket1
-  title: Customer Documents S3 Bucket
-  description: Bucket S3 che contiene i documenti caricati dai clienti.
+  title: bucket1
+  description: bucket1
   technology: terraform
   tags:
     - aws
