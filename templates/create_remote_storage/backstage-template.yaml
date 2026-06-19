@@ -14,20 +14,11 @@ spec:
     - title: Dettagli dello Storage
       required:
         - name
-        - title
       properties:
         name:
           title: Nome dello Storage
           type: string
           description: Deve corrispondere alla directory sotto resources/ da processare.
-        title:
-          title: Titolo dello Storage
-          type: string
-          description: Titolo leggibile usato nel catalogo Backstage.
-        description:
-          title: Descrizione
-          type: string
-          description: Descrizione opzionale della risorsa.
 
   steps:
     - id: run-templater-workflow
@@ -42,4 +33,4 @@ spec:
           resource_kind_id: s3_bucket
           resource_id: ${{ parameters.name }}
           backstage_params: >-
-            {"name":"${{ parameters.name }}","title":"${{ parameters.title }}","description":"${{ parameters.description }}"}
+            {"name":"${{ parameters.name }}","title":"${{ parameters..name }}","description":"${{ parameters..name }}"}
