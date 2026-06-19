@@ -1,3 +1,6 @@
+object_lock_enabled: true
+object_lock_retention_type: GOVERNANCE
+object_lock_retention_days: 30
 name: bucket3
 title: bucket3
 description: bucket3
