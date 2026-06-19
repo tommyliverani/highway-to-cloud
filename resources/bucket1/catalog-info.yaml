@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: bucket1
+  title: bucket1
+  description: bucket1
+  
+  build_blocks:
+    - subpath: ./bucket
+      technology: terraform
+      source_repo_url: git@github.com:tommyliverani/highway-to-cloud.git
+      source_repo_path: building_blocks/s3_bucket
+
+  tags:
+    - aws
+    - s3
+    - storage
+spec:
+  type: s3-bucket
+  owner: guest
+  lifecycle: production
