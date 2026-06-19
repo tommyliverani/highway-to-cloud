@@ -2,26 +2,33 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 
 metadata:
-  name: create-vm
-  title: Create VM
-  description: Creates a virtual machine resource
+  name: enable-storage-access
+  title: Enable storage access
+  description: Enable the access to a remote storage for a specific virtual machine
 
 spec:
   owner: team-platform
   type: infrastructure
 
   parameters:
-    - title: VM configuration
-      description: Virtual machine configuration
+    - title: Storage Access Configuration
+      description: Storage access configuration for a virtual machine
       required:
         - vm_name
+        - bucket_name
 
       properties:
 
         vm_name:
           title: VM name
           type: string
-          description: Name of the virtual machine resource to create
+          description: Name of the virtual machine resource that needs access
+          ui:autofocus: true
+
+        bucket_name:
+          title: Bucket name
+          type: string
+          description: Name of the storage bucket the VM must access
           ui:autofocus: true
 
   steps:
@@ -37,12 +44,13 @@ spec:
 
         workflowInputs:
 
-          operation_id: enable_storage_retention
+          operation_id: enable_storage_access
           resource_id: ${{ parameters.vm_name }}
 
           backstage_params: >-
             {
-              "vm_name": "${{ parameters.vm_name }}"
+              "vm_name": "${{ parameters.vm_name }}",
+              "bucket_name": "${{ parameters.bucket_name }}"
             }
 
     - id: log-workflow-link
