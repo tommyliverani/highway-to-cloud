@@ -81,13 +81,10 @@ jobs:
           const srcDir = "./templates/${{ github.event.inputs.operation_id }}";
           const destDir = "./resources/${{ github.event.inputs.resource_id }}";
           const destVariablesPath = path.join(destDir, "variables.yaml");
+          const destCatalogInfoPath = path.join(destDir, "catalog-info.yaml");
           const rawContext = JSON.parse(fs.readFileSync("/tmp/context.json", "utf8"));
 
           fs.mkdirSync(destDir, { recursive: true });
-
-          const existingValues = fs.existsSync(destVariablesPath)
-            ? (yaml.load(fs.readFileSync(destVariablesPath, "utf8")) || {})
-            : {};
 
           // Risolviamo i typo mappando le variabili in un contesto piatto
           const parameters = rawContext.parameters || {};
@@ -95,14 +92,12 @@ jobs:
           const security = rawContext.security || rawContext.secuirty || {};
           const secuirty = rawContext.security || rawContext.secuirty || {};
 
-          // Contesto finale pulito (senza l&apos;oggetto values intermedio)
-          const context = {
+          const baseContext = {
             parameters,
             prameters: parameters, // Mappa il typo {{ prameters.title }} in catalog-info.njk
             platform,
             security,
-            secuirty,              // Mappa il typo {{ secuirty.kms_key }} in variables.njk
-            values: existingValues
+            secuirty               // Mappa il typo {{ secuirty.kms_key }} in variables.njk
           };
 
           const env = njk.configure(srcDir, {
@@ -144,6 +139,26 @@ jobs:
           const hasSourceVariablesFile = fs.existsSync(path.join(srcDir, "variables.yaml"));
           const templates = [];
 
+          const loadExistingValues = (targetPath) => {
+            if (!fs.existsSync(targetPath)) {
+              return {};
+            }
+
+            const parsed = yaml.load(fs.readFileSync(targetPath, "utf8"));
+            return parsed && typeof parsed === "object" ? parsed : {};
+          };
+
+          const renderTemplate = (templateFile, outputPath) => {
+            console.log(`Rendering ${templateFile}...`);
+            const rendered = removeBlankLines(
+              env.render(templateFile, {
+                ...baseContext,
+                values: loadExistingValues(outputPath)
+              })
+            );
+            fs.writeFileSync(outputPath, rendered);
+          };
+
           if (hasSourceVariablesTemplate) {
             templates.push("variables.njk");
           }
@@ -157,11 +172,8 @@ jobs:
           templates.forEach(file => {
             const srcPath = path.join(srcDir, file);
             if (fs.existsSync(srcPath)) {
-              console.log(`Rendering ${file}...`);
-              const rendered = removeBlankLines(env.render(file, context));
-              
               const outputName = file.replace(".njk", ".yaml");
-              fs.writeFileSync(path.join(destDir, outputName), rendered);
+              renderTemplate(file, path.join(destDir, outputName));
             }
           });
 
@@ -231,6 +243,11 @@ jobs:
 
               if (!fs.existsSync(sourceDir) || !fs.statSync(sourceDir).isDirectory()) {
                 throw new Error(`Building block source directory not found: ${sourceDir}`);
+              }
+
+              if (fs.existsSync(targetDir)) {
+                console.log(`Building block already present at ${targetDir}, skipping copy.`);
+                return;
               }
 
               console.log(`Copying building block ${sourceRepoPath} to ${targetDir}`);

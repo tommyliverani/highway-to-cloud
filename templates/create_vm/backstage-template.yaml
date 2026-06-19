@@ -1,0 +1,56 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+
+metadata:
+  name: create-vm
+  title: Create VM
+  description: Creates a virtual machine resource
+
+spec:
+  owner: team-platform
+  type: infrastructure
+
+  parameters:
+    - title: VM configuration
+      description: Virtual machine configuration
+      required:
+        - vm_name
+
+      properties:
+
+        vm_name:
+          title: VM name
+          type: string
+          description: Name of the virtual machine resource to create
+          ui:autofocus: true
+
+  steps:
+
+    - id: run-templater-workflow
+      name: Run templater workflow
+      action: github:actions:dispatch
+
+      input:
+        repoUrl: github.com?owner=tommyliverani&repo=highway-to-cloud
+        workflowId: templater.yaml
+        branchOrTagName: main
+
+        workflowInputs:
+
+          operation_id: create_vm
+          resource_id: ${{ parameters.vm_name }}
+
+          backstage_params: >-
+            {
+              "vm_name": "${{ parameters.vm_name }}"
+            }
+
+    - id: log-workflow-link
+      name: Print GitHub Actions link
+
+      action: debug:log
+
+      input:
+        message: >-
+          GitHub Actions workflow triggered:
+          https://github.com/tommyliverani/highway-to-cloud/actions/workflows/templater.yaml
