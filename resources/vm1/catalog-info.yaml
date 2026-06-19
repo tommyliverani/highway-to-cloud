@@ -16,5 +16,3 @@ spec:
   type: vm
   owner: guest
   lifecycle: production
-  dependsOn:
-    - resource:default/bucket1
