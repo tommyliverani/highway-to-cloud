@@ -18,7 +18,7 @@ spec:
         name:
           title: Nome dello Storage
           type: string
-          description: Deve corrispondere alla directory sotto resources/ da processare.
+          description: Nome dello storage che verrà creato
 
   steps:
     - id: run-templater-workflow
@@ -33,4 +33,11 @@ spec:
           resource_kind_id: s3_bucket
           resource_id: ${{ parameters.name }}
           backstage_params: >-
-            {"name":"${{ parameters.name }}","title":"${{ parameters..name }}","description":"${{ parameters..name }}"}
+            {"name":"${{ parameters.name }}","title":"${{ parameters.name }}","description":"${{ parameters.name }}"}
+
+    - id: log-workflow-link
+      name: Print GitHub Actions link
+      action: debug:log
+      input:
+        message: >-
+          GitHub Actions workflow triggered: https://github.com/tommyliverani/highway-to-cloud/actions/workflows/templater.yaml

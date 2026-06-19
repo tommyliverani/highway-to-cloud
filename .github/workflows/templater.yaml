@@ -226,12 +226,3 @@ jobs:
             - **Operation ID**: `${{ github.event.inputs.operation_id }}`
             - **Resource ID**: `${{ github.event.inputs.resource_id }}`
           base: ${{ github.ref_name }}
-
-      # 7) Print useful links
-      - name: Print workflow results
-        if: always()
-        run: |
-          echo "GitHub Actions run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          if [ -n "${{ steps.create_pr.outputs.pull-request-url }}" ]; then
-            echo "Pull request: ${{ steps.create_pr.outputs.pull-request-url }}"
-          fi
