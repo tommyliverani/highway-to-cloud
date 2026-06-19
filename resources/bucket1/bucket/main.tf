@@ -1,5 +1,5 @@
 module "s3" {
-  source = "github.com/tommyliverani/highway-to-cloud//building_blocks/s3_bucket?ref=main"
+  source = "github.com/tommyliverani/highway-to-cloud//building_blocks/s3_bucket_module?ref=main"
 
   bucket_name           = var.bucket_name
   force_destroy         = var.force_destroy

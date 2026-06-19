@@ -2,9 +2,15 @@ apiVersion: backstage.io/v1alpha1
 kind: Resource
 metadata:
   name: bucket1
-  title: Customer Documents S3 Bucket
-  description: Bucket S3 che contiene i documenti caricati dai clienti.
-  technology: terraform
+  title: bucket di test
+  description: test usato come test
+  
+  build_blocks:
+    - subpath: ./bucket
+      technology: terraform
+      source_repo_url: git@github.com:tommyliverani/highway-to-cloud.git
+      source_repo_path: building_blocks/s3_bucket
+
   tags:
     - aws
     - s3
