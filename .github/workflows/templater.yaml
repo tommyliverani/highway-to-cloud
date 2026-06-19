@@ -9,7 +9,6 @@ on:
         type: string
       resource_kind_id:
         description: 'Target Resource Kind ID (matches the folder name inside ./templates)'
-        required: true
         type: string
       backstage_params:
         description: 'JSON string containing Backstage input parameters'
@@ -42,7 +41,8 @@ jobs:
         run: npm install nunjucks
 
       # 3) Copy ONLY the subdirectories to the resource folder
-      - name: Copy template directories only
+      - name: Copy template directory
+        if: ${{ github.event.inputs.resource_kind_id != '' }}
         run: |
           SRC_DIR="./templates/${{ github.event.inputs.resource_kind_id }}"
           DEST_DIR="./resources/${{ github.event.inputs.resource_id }}"
@@ -54,12 +54,10 @@ jobs:
 
           mkdir -p "$DEST_DIR"
 
-          for item in "$SRC_DIR"/*; do
-            if [ -d "$item" ]; then
-              echo "Copying directory $(basename "$item")"
-              cp -r "$item" "$DEST_DIR/"
-            fi
-          done
+          cp -r "$SRC_DIR" "$DEST_DIR/"
+
+          echo "Copied:"
+          echo "$SRC_DIR -> $DEST_DIR"
 
       # 4) Aggregate interfaces and JSON to a temporary context JSON file
       - name: Generate template context
