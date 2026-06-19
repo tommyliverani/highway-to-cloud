@@ -1,10 +1,10 @@
 apiVersion: backstage.io/v1alpha1
 kind: Resource
 metadata:
-  name: {{ parameters.name | kebabCase }}
-  title: {{ parameters.title }}
-  {%- if parameters.description %}
-  description: {{ parameters.description }}
+  name: {{ values.metadata.name | kebabCase }}
+  title: {{ values.metadata.title }}
+  {%- if values.metadata.description %}
+  description: {{ values.metadata.description }}
   {%- endif %}
   build_blocks:
     - subpath: ./vm
