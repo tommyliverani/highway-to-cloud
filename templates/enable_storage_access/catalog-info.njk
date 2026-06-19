@@ -3,9 +3,9 @@ kind: Resource
 metadata:
   name: {{ values.metadata.name | kebabCase }}
   title: {{ values.metadata.title }}
-  {%- if values.metadata.description %}
+  {% if values.metadata.description %}
   description: {{ values.metadata.description }}
-  {%- endif %}
+  {% endif %}
   build_blocks:
     - subpath: ./vm
       technology: terraform

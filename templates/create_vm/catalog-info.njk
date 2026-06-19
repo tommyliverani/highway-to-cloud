@@ -2,11 +2,10 @@ apiVersion: backstage.io/v1alpha1
 kind: Resource
 metadata:
   name: {{ parameters.vm_name | kebabCase }}
-  title: {{ prameters.vm_name }}
+  title: {{ parameters.vm_name }}
   {% if parameters.description %}
   description: {{ parameters.description }}
   {% endif %}
-  
   build_blocks:
     - subpath: ./vm
       technology: terraform
