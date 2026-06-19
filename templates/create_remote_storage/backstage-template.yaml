@@ -2,21 +2,21 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 
 metadata:
-  name: create-s3-bucket
-  title: AWS S3 Create bucket
-  description: Automatizza la creazione di un bucket S3 su AWS
+  name: create-remote-storage
+  title: Create remote storage
+  description: Automatizza la creazione di uno storage remoto
 
 spec:
   owner: team-platform
   type: infrastructure
 
   parameters:
-    - title: Dettagli del Bucket
+    - title: Dettagli dello Storage
       required:
-        - bucketName
+        - storageName
       properties:
-        bucketName:
-          title: Nome del Bucket S3
+        storageName:
+          title: Nome dello Storage
           type: string
           description: Verrà validato secondo le convenzioni AWS.
 
@@ -36,23 +36,23 @@ spec:
         url: https://github.com/tommyliverani/highway-to-cloud.git
         targetPath: ./templates
 
-    - id: generate-bucket-files
-      name: Generate bucket files
+    - id: generate-storage-files
+      name: Generate storage files
       action: fetch:template
       input:
-        url: ./templates/s3_createBucket/bucket
-        targetPath: ./resources/${{ parameters.bucketName }}
+        url: ./templates/s3_bucket
+        targetPath: ./resources/${{ parameters.storageName }}
         values:
-          bucketName: ${{ parameters.bucketName }}
+          storageName: ${{ parameters.storageName }}
     
-    - id: generate-bucket-vars
-      name: Generate bucket files
+    - id: generate-storage-vars
+      name: Generate storage variables
       action: fetch:template
       input:
-        url: ./templates/s3_createBucket/bucket
-        targetPath: ./resources/${{ parameters.bucketName }}
+        url: ./templates/s3_bucket
+        targetPath: ./resources/${{ parameters.storageName }}
         values:
-          bucketName: ${{ parameters.bucketName }}
+          storageName: ${{ parameters.storageName }}
 
     
 
