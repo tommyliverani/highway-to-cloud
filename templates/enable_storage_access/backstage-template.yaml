@@ -15,7 +15,7 @@ spec:
       description: Storage access configuration for a virtual machine
       required:
         - vm_name
-        - bucket_name
+        - storage_name
 
       properties:
 
@@ -25,10 +25,10 @@ spec:
           description: Name of the virtual machine resource that needs access
           ui:autofocus: true
 
-        bucket_name:
-          title: Bucket name
+        storage_name:
+          title: Storage name
           type: string
-          description: Name of the storage bucket the VM must access
+          description: Name of the storage the VM must access
           ui:autofocus: true
 
   steps:
@@ -50,7 +50,7 @@ spec:
           backstage_params: >-
             {
               "vm_name": "${{ parameters.vm_name }}",
-              "bucket_name": "${{ parameters.bucket_name }}"
+              "storage_name": "${{ parameters.storage_name }}"
             }
 
     - id: log-workflow-link

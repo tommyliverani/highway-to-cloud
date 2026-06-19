@@ -5,7 +5,7 @@ inline_policy_statements:
       - "s3:ListBucket"
       - "s3:GetBucketLocation"
     Resource: 
-      - "arn:aws:s3:::{{ parameters.bucket_name }}"
+      - "arn:aws:s3:::{{ parameters.storage_name }}"
 
   - Sid: "S3BucketObjectAccess"
     Effect: "Allow"
@@ -17,4 +17,4 @@ inline_policy_statements:
       - "s3:DeleteObject"
       - "s3:DeleteObjectVersion"
     Resource: 
-      - "arn:aws:s3:::{{ parameters.bucket_name }}/*"
+      - "arn:aws:s3:::{{ parameters.storage_name }}/*"
