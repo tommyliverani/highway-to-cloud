@@ -10,15 +10,15 @@ variable "force_destroy" {
   default     = false
 }
 
-variable "kms_key" {
-  description = "KMS key"
-  type        = string
-}
-
 variable "enable_server_side_encryption" {
   description = "Enable server side encryption"
   type        = bool
   default     = false
+}
+
+variable "kms_key" {
+  description = "KMS key"
+  type        = string
 }
 
 variable "kms_sse_alg" {
@@ -50,4 +50,16 @@ variable "tags" {
   description = "(Optional) A mapping of tags to assign to the bucket."
   type        = map(string)
   default     = {}
+}
+
+variable "account_id" {
+  description = "(Optional) The AWS account ID."
+  type        = string
+  default     = ""
+}
+
+variable "region" {
+  description = "(Optional) The AWS region."
+  type        = string
+  default     = "us-east-1"
 }

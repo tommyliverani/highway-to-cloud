@@ -38,63 +38,54 @@ jobs:
         with:
           node-version: '20'
       - name: Install Nunjucks Core
-        run: npm install nunjucks
+        run: npm install nunjucks js-yaml
 
-      # 3) Copy ONLY the subdirectories to the resource folder
-      - name: Copy resource kind directories
-        if: ${{ github.event.inputs.resource_kind_id != '' }}
-        run: |
-          SRC_DIR="./templates/${{ github.event.inputs.resource_kind_id }}"
-          DEST_DIR="./resources/${{ github.event.inputs.resource_id }}"
-          if [ ! -d "$SRC_DIR" ]; then
-            echo "::error::Source directory $SRC_DIR does not exist!"
-            exit 1
-          fi
-          mkdir -p "$DEST_DIR"
-          echo "Directories found in $SRC_DIR:"
-          find "$SRC_DIR" -mindepth 1 -maxdepth 1 -type d | while read DIR; do
-            DIR_NAME=$(basename "$DIR")
-            echo "Copying directory: $DIR_NAME"
-            cp -r "$DIR" "$DEST_DIR/"
-          done
-          echo "Copy completed."
-
-      # 4) Aggregate interfaces and JSON to a temporary context JSON file
+      # 3) Aggregate interfaces and JSON to a temporary context JSON file
       - name: Generate template context
         run: |
-          INT_DIR="./interfaces/${{ github.event.inputs.operation_id }}"
-          CONTEXT_FILE="/tmp/context.json"
-          
-          echo "{}" > "$CONTEXT_FILE"
-          
-          if [ -d "$INT_DIR" ]; then
-            for sub_dir in "$INT_DIR"/*; do
-              if [ -d "$sub_dir" ]; then
-                export INTERFACE_ID=$(basename "$sub_dir")
-                export VAR_FILE="$sub_dir/variables.yaml"
-                
-                if [ -f "$VAR_FILE" ]; then
-                  yq eval -o=json '.[strenv(INTERFACE_ID)] = load(strenv(VAR_FILE))' -i "$CONTEXT_FILE"
-                fi
-              fi
-            done
-          fi
+          node -e '
+          const fs = require("fs");
+          const path = require("path");
+          const yaml = require("js-yaml");
 
-          # Append Backstage parameters directly into the JSON context
-          echo '${{ github.event.inputs.backstage_params }}' > /tmp/params.json
-          yq eval -o=json '.parameters = load("/tmp/params.json")' -i "$CONTEXT_FILE"
+          const interfaceDir = "./interfaces/${{ github.event.inputs.operation_id }}";
+          const contextFile = "/tmp/context.json";
+          const context = {};
 
-      # 5) Render templates using native Node script (Clean Flat Context)
-      - name: Render Nunjucks templates
+          if (fs.existsSync(interfaceDir)) {
+            for (const entry of fs.readdirSync(interfaceDir, { withFileTypes: true })) {
+              if (!entry.isDirectory()) {
+                continue;
+              }
+
+              const interfaceId = entry.name;
+              const variablesPath = path.join(interfaceDir, interfaceId, "variables.yaml");
+              if (!fs.existsSync(variablesPath)) {
+                continue;
+              }
+
+              context[interfaceId] = yaml.load(fs.readFileSync(variablesPath, "utf8")) || {};
+            }
+          }
+
+          context.parameters = JSON.parse(`${{ github.event.inputs.backstage_params }}`);
+          fs.writeFileSync(contextFile, JSON.stringify(context, null, 2));
+          '
+
+      # 4) Render templates and copy declared building blocks
+      - name: Render Nunjucks templates and copy building blocks
         run: |
           node -e '
           const njk = require("nunjucks");
           const fs = require("fs");
           const path = require("path");
+          const yaml = require("js-yaml");
 
           const srcDir = "./templates/${{ github.event.inputs.operation_id }}";
           const destDir = "./resources/${{ github.event.inputs.resource_id }}";
           const rawContext = JSON.parse(fs.readFileSync("/tmp/context.json", "utf8"));
+
+          fs.mkdirSync(destDir, { recursive: true });
 
           // Risolviamo i typo mappando le variabili in un contesto piatto
           const parameters = rawContext.parameters || {};
@@ -144,15 +135,81 @@ jobs:
               fs.writeFileSync(path.join(destDir, outputName), rendered);
             }
           });
+
+          const catalogInfoPath = path.join(destDir, "catalog-info.yaml");
+          if (!fs.existsSync(catalogInfoPath)) {
+            throw new Error(`Generated catalog-info.yaml not found in ${destDir}`);
+          }
+
+          const catalogInfo = yaml.load(fs.readFileSync(catalogInfoPath, "utf8")) || {};
+          const metadata = catalogInfo.metadata || {};
+          const declaredBlocks = metadata.building_blocks || metadata.builcing_blocks || metadata.build_blocks || [];
+
+          if (!Array.isArray(declaredBlocks)) {
+            throw new Error("metadata.building_blocks must be an array");
+          }
+
+          const copyDirectory = (sourceDir, targetDir) => {
+            fs.mkdirSync(targetDir, { recursive: true });
+            for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+              const sourcePath = path.join(sourceDir, entry.name);
+              const targetPath = path.join(targetDir, entry.name);
+              if (entry.isDirectory()) {
+                copyDirectory(sourcePath, targetPath);
+              } else {
+                fs.copyFileSync(sourcePath, targetPath);
+              }
+            }
+          };
+
+          const normalizeRepoPath = (repoPath) => {
+            if (!repoPath) {
+              return "";
+            }
+            return repoPath.replace(/^\/+/, "").replace(/^\.\//, "");
+          };
+
+          declaredBlocks.forEach((block, index) => {
+            if (!block || typeof block !== "object") {
+              throw new Error(`Building block at index ${index} is invalid`);
+            }
+
+            const subpathValue = block.subpath || block.target_subpath;
+            const sourceRepoPath = normalizeRepoPath(block.source_repo_path || block.repo_path);
+            const sourceRepoUrl = block.source_repo_url || block.repo_url || "";
+
+            if (!subpathValue) {
+              throw new Error(`Building block at index ${index} is missing subpath`);
+            }
+
+            if (!sourceRepoPath) {
+              throw new Error(`Building block at index ${index} is missing source_repo_path`);
+            }
+
+            const normalizedSubpath = subpathValue.replace(/^\.\//, "").replace(/^\/+/, "");
+            const sourceDir = path.resolve(process.cwd(), sourceRepoPath);
+            const targetDir = path.resolve(destDir, normalizedSubpath);
+
+            if (sourceRepoUrl && !sourceRepoUrl.includes("highway-to-cloud")) {
+              throw new Error(`Unsupported source_repo_url for building block ${sourceRepoUrl}`);
+            }
+
+            if (!fs.existsSync(sourceDir) || !fs.statSync(sourceDir).isDirectory()) {
+              throw new Error(`Building block source directory not found: ${sourceDir}`);
+            }
+
+            console.log(`Copying building block ${sourceRepoPath} to ${targetDir}`);
+            copyDirectory(sourceDir, targetDir);
+          });
           '
 
-      # 6) Clean up Node modules and temporary files
+      # 5) Clean up Node modules and temporary files
       - name: Clean workspace dependencies
         run: |
           rm -rf node_modules
           rm -f package.json package-lock.json
 
-      # 7) Create and Open a Pull Request on GitHub
+      # 6) Create and Open a Pull Request on GitHub
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:

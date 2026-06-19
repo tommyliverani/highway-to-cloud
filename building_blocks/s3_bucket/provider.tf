@@ -1,9 +1,13 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.80.0"
+provider "aws" {
+  region = "${var.region}"
+  
+  assume_role {
+    role_arn = "arn:aws:iam::${var.account_id}:role/OrganizationAccountAccessRole"
+  }
+  
+  default_tags {
+    tags = {
+      Owner = "Imola Informatica"
     }
   }
-  required_version = ">= 1.7.0"
 }

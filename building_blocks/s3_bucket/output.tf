@@ -1,19 +1,14 @@
-output "s3_bucket_id" {
+output "bucket_id" {
   description = "The name of the bucket."
-  value       = aws_s3_bucket.bucket.id
+  value       = module.s3.s3_bucket_id
 }
 
-output "s3_bucket_bucket_domain_name" {
-  description = "The name of the bucket."
-  value       = aws_s3_bucket.bucket.bucket_domain_name
+output "bucket_arn" {
+  description = "The ARN the S3 bucket created by the s3_module."
+  value       = module.s3.s3_bucket_arn
 }
 
-output "s3_bucket_arn" {
-  description = "The ARN of the bucket. Will be of format arn:aws:s3:::bucketname."
-  value       = aws_s3_bucket.bucket.arn
-}
-
-output "s3_bucket_region" {
-  description = "The AWS region bucket bucket resides in."
-  value       = aws_s3_bucket.bucket.region
+output "bucket_name" {
+  description = "The bucket domain name."
+  value       = module.s3.s3_bucket_bucket_domain_name
 }
