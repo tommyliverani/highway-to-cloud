@@ -16,6 +16,6 @@ metadata:
     - s3
     - storage
 spec:
-  type: s3-bucket
+  type: storage
   owner: guest
   lifecycle: production

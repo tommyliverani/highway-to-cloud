@@ -3,9 +3,9 @@ kind: Resource
 metadata:
   name: {{ parameters.name | kebabCase }}
   title: {{ prameters.title }}
-  {%- if parameters.description %}
+  {% if parameters.description %}
   description: {{ parameters.description }}
-  {%- endif %}
+  {% endif %}
   
   build_blocks:
     - subpath: ./bucket
@@ -18,6 +18,6 @@ metadata:
     - s3
     - storage
 spec:
-  type: s3-bucket
+  type: storage
   owner: guest
   lifecycle: production
