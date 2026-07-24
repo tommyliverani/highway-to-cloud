@@ -1,4 +1,4 @@
-name: template
+name: templater
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  template:
+  templater:
     runs-on: ubuntu-latest
 
     steps:
@@ -177,18 +177,6 @@ jobs:
             }
           });
 
-          // Render variables.njk files in subpath directories of the template
-          for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
-            if (!entry.isDirectory()) continue;
-            const subpath = entry.name;
-            const subpathTemplateFile = path.join(subpath, "variables.njk");
-            if (fs.existsSync(path.join(srcDir, subpathTemplateFile))) {
-              const subpathDestDir = path.join(destDir, subpath);
-              fs.mkdirSync(subpathDestDir, { recursive: true });
-              renderTemplate(subpathTemplateFile, path.join(subpathDestDir, "variables.yaml"));
-            }
-          }
-
           if (!hasSourceVariablesTemplate && hasSourceVariablesFile) {
             console.log("variables.njk not found, copying variables.yaml from source template.");
             fs.copyFileSync(path.join(srcDir, "variables.yaml"), destVariablesPath);
@@ -266,6 +254,19 @@ jobs:
               copyDirectory(sourceDir, targetDir);
             });
           }
+
+          // Render variables.njk files in subpath directories of the template
+          // (after building blocks are copied so the directory existence check is not affected)
+          for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+            if (!entry.isDirectory()) continue;
+            const subpath = entry.name;
+            const subpathTemplateFile = path.join(subpath, "variables.njk");
+            if (fs.existsSync(path.join(srcDir, subpathTemplateFile))) {
+              const subpathDestDir = path.join(destDir, subpath);
+              fs.mkdirSync(subpathDestDir, { recursive: true });
+              renderTemplate(subpathTemplateFile, path.join(subpathDestDir, "variables.yaml"));
+            }
+          }
           '
 
       # 5) Clean up Node modules and temporary files
@@ -286,7 +287,7 @@ jobs:
           title: "Feature: ${{ github.event.inputs.operation_id }} - ${{ github.event.inputs.resource_id }}"
           body: |
             ### 🚀 Template Rendered Automatically
-            Questa Pull Request è stata aperta automaticamente dal workflow `template`.
+            Questa Pull Request è stata aperta automaticamente dal workflow `templater`.
             
             - **Operation ID**: `${{ github.event.inputs.operation_id }}`
             - **Resource ID**: `${{ github.event.inputs.resource_id }}`
