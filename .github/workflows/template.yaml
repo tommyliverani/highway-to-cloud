@@ -1,4 +1,4 @@
-name: templater
+name: template
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  templater:
+  template:
     runs-on: ubuntu-latest
 
     steps:
@@ -286,7 +286,7 @@ jobs:
           title: "Feature: ${{ github.event.inputs.operation_id }} - ${{ github.event.inputs.resource_id }}"
           body: |
             ### 🚀 Template Rendered Automatically
-            Questa Pull Request è stata aperta automaticamente dal workflow `templater`.
+            Questa Pull Request è stata aperta automaticamente dal workflow `template`.
             
             - **Operation ID**: `${{ github.event.inputs.operation_id }}`
             - **Resource ID**: `${{ github.event.inputs.resource_id }}`

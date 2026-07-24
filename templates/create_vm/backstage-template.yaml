@@ -26,13 +26,13 @@ spec:
 
   steps:
 
-    - id: run-templater-workflow
-      name: Run templater workflow
+    - id: run-template-workflow
+      name: Run template workflow
       action: github:actions:dispatch
 
       input:
         repoUrl: github.com?owner=tommyliverani&repo=highway-to-cloud
-        workflowId: templater.yaml
+        workflowId: template.yaml
         branchOrTagName: main
 
         workflowInputs:
@@ -53,4 +53,4 @@ spec:
       input:
         message: >-
           GitHub Actions workflow triggered:
-          https://github.com/tommyliverani/highway-to-cloud/actions/workflows/templater.yaml
+          https://github.com/tommyliverani/highway-to-cloud/actions/workflows/template.yaml
