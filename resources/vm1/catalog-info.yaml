@@ -17,4 +17,4 @@ spec:
   owner: guest
   lifecycle: production
   dependsOn:
-    - "resource:default/bucket1"
+    - "resource:default/storage5"
