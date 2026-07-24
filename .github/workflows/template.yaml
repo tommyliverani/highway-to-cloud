@@ -177,6 +177,18 @@ jobs:
             }
           });
 
+          // Render variables.njk files in subpath directories of the template
+          for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+            if (!entry.isDirectory()) continue;
+            const subpath = entry.name;
+            const subpathTemplateFile = path.join(subpath, "variables.njk");
+            if (fs.existsSync(path.join(srcDir, subpathTemplateFile))) {
+              const subpathDestDir = path.join(destDir, subpath);
+              fs.mkdirSync(subpathDestDir, { recursive: true });
+              renderTemplate(subpathTemplateFile, path.join(subpathDestDir, "variables.yaml"));
+            }
+          }
+
           if (!hasSourceVariablesTemplate && hasSourceVariablesFile) {
             console.log("variables.njk not found, copying variables.yaml from source template.");
             fs.copyFileSync(path.join(srcDir, "variables.yaml"), destVariablesPath);
