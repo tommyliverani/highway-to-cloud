@@ -144,10 +144,8 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: ${ARGOCD_NAMESPACE}
+  # No automated sync: changes are applied with a manual Sync from the Argo CD UI.
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 EOF

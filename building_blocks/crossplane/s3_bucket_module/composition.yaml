@@ -1,0 +1,119 @@
+# Implementation of the S3Bucket API: same resources as building_blocks/terraform/s3_bucket_module
+# (bucket, versioning, optional encryption, optional object lock). Unlike Terraform there is no
+# depends_on: the object lock configuration keeps retrying until versioning is enabled.
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: s3buckets-aws
+  labels:
+    provider: aws
+spec:
+  compositeTypeRef:
+    apiVersion: storage.highwaytocloud.io/v1alpha1
+    kind: S3Bucket
+  mode: Pipeline
+  pipeline:
+    - step: render-resources
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $xr := .observed.composite.resource }}
+            {{- $spec := $xr.spec }}
+            {{- $region := $spec.region }}
+            {{- $providerConfig := $spec.providerConfigName | default "default" }}
+            ---
+            apiVersion: s3.aws.m.upbound.io/v1beta1
+            kind: Bucket
+            metadata:
+              annotations:
+                {{ setResourceNameAnnotation "bucket" }}
+                crossplane.io/external-name: {{ $spec.bucketName | default $xr.metadata.name | quote }}
+            spec:
+              forProvider:
+                region: {{ $region | quote }}
+                forceDestroy: {{ $spec.forceDestroy | default false }}
+                {{- with $spec.tags }}
+                tags:
+                  {{- toYaml . | nindent 6 }}
+                {{- end }}
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: {{ $providerConfig | quote }}
+            ---
+            apiVersion: s3.aws.m.upbound.io/v1beta1
+            kind: BucketVersioning
+            metadata:
+              annotations:
+                {{ setResourceNameAnnotation "versioning" }}
+            spec:
+              forProvider:
+                region: {{ $region | quote }}
+                bucketSelector:
+                  matchControllerRef: true
+                versioningConfiguration:
+                  status: Enabled
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: {{ $providerConfig | quote }}
+            {{- if $spec.enableServerSideEncryption }}
+            ---
+            apiVersion: s3.aws.m.upbound.io/v1beta1
+            kind: BucketServerSideEncryptionConfiguration
+            metadata:
+              annotations:
+                {{ setResourceNameAnnotation "encryption" }}
+            spec:
+              forProvider:
+                region: {{ $region | quote }}
+                bucketSelector:
+                  matchControllerRef: true
+                rule:
+                  - applyServerSideEncryptionByDefault:
+                      sseAlgorithm: {{ $spec.kmsSseAlg | default "AES256" | quote }}
+                      {{- with $spec.kmsKey }}
+                      kmsMasterKeyId: {{ . | quote }}
+                      {{- end }}
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: {{ $providerConfig | quote }}
+            {{- end }}
+            {{- if $spec.objectLockEnabled }}
+            ---
+            apiVersion: s3.aws.m.upbound.io/v1beta1
+            kind: BucketObjectLockConfiguration
+            metadata:
+              annotations:
+                {{ setResourceNameAnnotation "object-lock" }}
+            spec:
+              forProvider:
+                region: {{ $region | quote }}
+                bucketSelector:
+                  matchControllerRef: true
+                objectLockEnabled: Enabled
+                rule:
+                  defaultRetention:
+                    mode: {{ $spec.objectLockRetentionType | default "GOVERNANCE" | quote }}
+                    days: {{ $spec.objectLockRetentionDays | default 365 }}
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: {{ $providerConfig | quote }}
+            {{- end }}
+            {{- with getComposedResource . "bucket" }}
+            ---
+            # Outputs of the building block, same as output.tf of the Terraform module.
+            apiVersion: storage.highwaytocloud.io/v1alpha1
+            kind: S3Bucket
+            status:
+              bucketId: {{ dig "status" "atProvider" "id" "" . | quote }}
+              bucketArn: {{ dig "status" "atProvider" "arn" "" . | quote }}
+              bucketDomainName: {{ dig "status" "atProvider" "bucketDomainName" "" . | quote }}
+              bucketRegion: {{ dig "status" "atProvider" "region" "" . | quote }}
+            {{- end }}
+    - step: detect-ready-resources
+      functionRef:
+        name: function-auto-ready
