@@ -1,0 +1,15 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: "highway-to-cloud-3"
+  title: "highway-to-cloud-3"
+  description: "highway-to-cloud-3"
+  idp_tool: terraform
+  tags:
+    - aws
+    - s3
+    - storage
+spec:
+  type: storage
+  owner: guest
+  lifecycle: production
