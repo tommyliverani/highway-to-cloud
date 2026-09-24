@@ -10,3 +10,9 @@ account_id: {{ platform.account_id }}
 kms_key: {{ security.kms_key }}
 kms_sse_alg: {{ security.kms_sse_alg }}
 
+{# Terraform backend: passed to terraform init with -backend-config, not as a variable #}
+backend:
+  bucket: {{ tf_backend.state_bucket | dump }}
+  region: {{ tf_backend.state_region | dump }}
+  key: {{ ("resources/" + parameters.name + "/terraform.tfstate") | dump }}
+

@@ -41,16 +41,25 @@ jobs:
             [ -n "${!v}" ] || { echo "::error::$v is not set (repository secrets)"; exit 1; }
           done
 
-      # Terraform only reads .tfvars / .tfvars.json: variables.yaml (older resources) is converted.
-      - name: Prepare variables
+      # variables.json holds both the Terraform variables and a "backend" object: backend blocks cannot
+      # use variables, so the backend goes to -backend-config and everything else to -var-file.
+      # Terraform only reads .json files as JSON; variables.yaml (older resources) is converted.
+      - name: Prepare variables and backend
         run: |
-          var_file="$RUNNER_TEMP/variables.tfvars.json"
+          all="$RUNNER_TEMP/variables.all.json"
           if [ -f "$RESOURCE/variables.json" ]; then
-            cp "$RESOURCE/variables.json" "$var_file"
+            cp "$RESOURCE/variables.json" "$all"
           else
-            yq -o=json "$RESOURCE/variables.yaml" > "$var_file"
+            yq -o=json "$RESOURCE/variables.yaml" > "$all"
           fi
-          echo "VAR_FILE=$var_file" >> "$GITHUB_ENV"
+          jq -e '.backend | objects' "$all" > "$RUNNER_TEMP/backend.json" || {
+            echo "::error::$RESOURCE variables file has no \"backend\" object (bucket, region, key)"
+            exit 1
+          }
+          jq 'del(.backend)' "$all" > "$RUNNER_TEMP/variables.tfvars.json"
+          echo "BACKEND_FILE=$RUNNER_TEMP/backend.json" >> "$GITHUB_ENV"
+          echo "VAR_FILE=$RUNNER_TEMP/variables.tfvars.json" >> "$GITHUB_ENV"
+          echo "Backend:"; jq . "$RUNNER_TEMP/backend.json"
 
       # Turns the opaque backend error (STS InvalidClientTokenId) into an explicit diagnosis.
       - name: Check AWS credentials
@@ -59,7 +68,7 @@ jobs:
             echo "::error::AWS_ADMIN_ACCESS_KEY is not an access key ID (length ${#AWS_ACCESS_KEY_ID}, expected 20 chars starting with AKIA): wrong value, swapped secrets or extra spaces/newlines"
             exit 1
           fi
-          region=$(grep -Po 'region\s*=\s*"\K[^"]+' "$RESOURCE/terraform.tf" | head -1)
+          region=$(jq -r '.region' "$BACKEND_FILE")
           echo "Identity (us-east-1):"
           aws sts get-caller-identity --region us-east-1 --query Arn --output text || {
             echo "::error::AWS rejects the credentials: the access key is deleted/inactive or the secret key does not match it"
@@ -71,9 +80,8 @@ jobs:
             exit 1
           }
 
-      # The backend (state bucket, region, key) is written in the resource's terraform.tf at render time.
       - name: Terraform init
-        run: terraform -chdir="$RESOURCE" init -input=false
+        run: terraform -chdir="$RESOURCE" init -input=false -backend-config="$BACKEND_FILE"
 
       - name: Terraform apply
         run: terraform -chdir="$RESOURCE" apply -input=false -auto-approve -var-file="$VAR_FILE"
