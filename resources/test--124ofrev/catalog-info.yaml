@@ -1,0 +1,15 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: "test--124ofrev"
+  title: "test--124ofrev"
+  description: "test--124ofrev"
+  idp_tool: terraform
+  tags:
+    - aws
+    - s3
+    - storage
+spec:
+  type: storage
+  owner: guest
+  lifecycle: production
