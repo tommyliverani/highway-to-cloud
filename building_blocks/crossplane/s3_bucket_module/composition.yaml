@@ -1,6 +1,7 @@
 # Implementation of the S3Bucket API: same resources as building_blocks/terraform/s3_bucket_module
-# (bucket, versioning, optional encryption, optional object lock). Unlike Terraform there is no
-# depends_on: the object lock configuration keeps retrying until versioning is enabled.
+# (bucket, versioning, optional encryption, object lock, intelligent tiering and lifecycle rule).
+# Unlike Terraform there is no depends_on: object lock and lifecycle keep retrying until versioning
+# is enabled.
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
@@ -99,6 +100,69 @@ spec:
                   defaultRetention:
                     mode: {{ $spec.objectLockRetentionType | default "GOVERNANCE" | quote }}
                     days: {{ $spec.objectLockRetentionDays | default 365 }}
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: {{ $providerConfig | quote }}
+            {{- end }}
+            {{- if $spec.intelligentTieringEnabled }}
+            ---
+            apiVersion: s3.aws.m.upbound.io/v1beta1
+            kind: BucketIntelligentTieringConfiguration
+            metadata:
+              annotations:
+                {{ setResourceNameAnnotation "intelligent-tiering" }}
+            spec:
+              forProvider:
+                region: {{ $region | quote }}
+                bucketSelector:
+                  matchControllerRef: true
+                name: entire-bucket
+                status: Enabled
+                tiering:
+                  - accessTier: ARCHIVE_ACCESS
+                    days: {{ $spec.intelligentTieringArchiveDays | default 90 | int }}
+                  {{- if gt ($spec.intelligentTieringDeepArchiveDays | default 0 | int) 0 }}
+                  - accessTier: DEEP_ARCHIVE_ACCESS
+                    days: {{ $spec.intelligentTieringDeepArchiveDays | int }}
+                  {{- end }}
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: {{ $providerConfig | quote }}
+            {{- end }}
+            {{- if $spec.lifecycleRuleEnabled }}
+            ---
+            apiVersion: s3.aws.m.upbound.io/v1beta1
+            kind: BucketLifecycleConfiguration
+            metadata:
+              annotations:
+                {{ setResourceNameAnnotation "lifecycle" }}
+            spec:
+              forProvider:
+                region: {{ $region | quote }}
+                bucketSelector:
+                  matchControllerRef: true
+                rule:
+                  - id: platform-lifecycle
+                    status: Enabled
+                    filter:
+                      - prefix: ""
+                    {{- if gt ($spec.lifecycleTransitionDays | default 0 | int) 0 }}
+                    transition:
+                      - days: {{ $spec.lifecycleTransitionDays | int }}
+                        storageClass: {{ $spec.lifecycleTransitionStorageClass | default "STANDARD_IA" | quote }}
+                    {{- end }}
+                    {{- if gt ($spec.lifecycleExpirationDays | default 0 | int) 0 }}
+                    expiration:
+                      - days: {{ $spec.lifecycleExpirationDays | int }}
+                    {{- end }}
+                    {{- if gt ($spec.lifecycleNoncurrentVersionExpirationDays | default 0 | int) 0 }}
+                    noncurrentVersionExpiration:
+                      - noncurrentDays: {{ $spec.lifecycleNoncurrentVersionExpirationDays | int }}
+                    {{- end }}
+                    {{- if gt ($spec.lifecycleAbortMultipartDays | default 0 | int) 0 }}
+                    abortIncompleteMultipartUpload:
+                      - daysAfterInitiation: {{ $spec.lifecycleAbortMultipartDays | int }}
+                    {{- end }}
               providerConfigRef:
                 kind: ClusterProviderConfig
                 name: {{ $providerConfig | quote }}

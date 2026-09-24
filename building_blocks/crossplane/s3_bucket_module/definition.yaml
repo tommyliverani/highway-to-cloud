@@ -63,10 +63,62 @@ spec:
                   additionalProperties:
                     type: string
                   description: Tags to assign to the bucket.
+                intelligentTieringEnabled:
+                  type: boolean
+                  default: false
+                  description: Move objects stored in the INTELLIGENT_TIERING class to the archive tiers when not accessed.
+                intelligentTieringArchiveDays:
+                  type: integer
+                  minimum: 90
+                  maximum: 730
+                  default: 90
+                  description: Days without access before objects move to the Archive Access tier.
+                intelligentTieringDeepArchiveDays:
+                  type: integer
+                  default: 0
+                  description: Days without access before objects move to the Deep Archive Access tier (180-730, 0 = disabled).
+                  x-kubernetes-validations:
+                    - rule: self == 0 || (self >= 180 && self <= 730)
+                      message: intelligentTieringDeepArchiveDays must be 0 or between 180 and 730.
+                lifecycleRuleEnabled:
+                  type: boolean
+                  default: false
+                  description: Apply a lifecycle rule to every object of the bucket.
+                lifecycleTransitionDays:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                  description: Days after creation before objects move to lifecycleTransitionStorageClass (0 = no transition).
+                lifecycleTransitionStorageClass:
+                  type: string
+                  enum: [STANDARD_IA, INTELLIGENT_TIERING, GLACIER, DEEP_ARCHIVE]
+                  default: STANDARD_IA
+                  description: Storage class objects move to.
+                lifecycleExpirationDays:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                  description: Days after creation before objects are deleted (0 = never).
+                lifecycleNoncurrentVersionExpirationDays:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                  description: Days before non-current object versions are deleted (0 = never).
+                lifecycleAbortMultipartDays:
+                  type: integer
+                  minimum: 0
+                  default: 7
+                  description: Days before incomplete multipart uploads are aborted (0 = never).
                 providerConfigName:
                   type: string
                   default: default
                   description: ClusterProviderConfig with the AWS credentials to use.
+              # Same checks as the preconditions of lifecycle.tf in the Terraform module.
+              x-kubernetes-validations:
+                - rule: "!self.lifecycleRuleEnabled || self.lifecycleTransitionDays == 0 || self.lifecycleTransitionStorageClass != 'STANDARD_IA' || self.lifecycleTransitionDays >= 30"
+                  message: Objects can move to STANDARD_IA only after at least 30 days.
+                - rule: "!self.lifecycleRuleEnabled || self.lifecycleExpirationDays == 0 || self.lifecycleTransitionDays == 0 || self.lifecycleExpirationDays > self.lifecycleTransitionDays"
+                  message: lifecycleExpirationDays must be greater than lifecycleTransitionDays.
             status:
               type: object
               properties:
