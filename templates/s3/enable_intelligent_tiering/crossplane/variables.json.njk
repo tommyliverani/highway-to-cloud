@@ -1,0 +1,11 @@
+{% set overridden = ["intelligent_tiering_enabled", "intelligent_tiering_archive_days", "intelligent_tiering_deep_archive_days"] %}
+intelligent_tiering_enabled: true
+intelligent_tiering_archive_days: {{ parameters.archive_days | int }}
+intelligent_tiering_deep_archive_days: {{ (parameters.deep_archive_days or 0) | int }}
+
+{# old values #}
+{% for key, value in old_values %}
+{% if not (key in overridden) %}
+{{ key }}: {{ value | dump }}
+{% endif %}
+{% endfor %}
