@@ -1,8 +1,8 @@
 name: deploy-crossplane
 
 # Deploy module for tool "crossplane". The actual deploy is GitOps: Argo CD syncs the manifests once the
-# resource is merged into main. This module only checks that the manifests are valid YAML, so a broken
-# resource blocks the merge into main.
+# resource is merged into main. This module only checks that the resource renders (helm template with
+# its variables.json), so a broken resource blocks the merge into main.
 on:
   workflow_call:
     inputs:
@@ -28,11 +28,14 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
-      - name: Validate manifests
+      # A Crossplane resource is a Helm chart fed with variables.json: render it the way Argo CD will.
+      - name: Render manifests
         run: |
           [[ "$RESOURCE" =~ ^resources/[A-Za-z0-9._-]+$ ]] || { echo "::error::Invalid resource '$RESOURCE'"; exit 1; }
-          find "$RESOURCE" -name '*.yaml' -print0 | while IFS= read -r -d '' f; do
-            yq '.' "$f" > /dev/null || { echo "::error::$f is not valid YAML"; exit 1; }
-            echo "OK $f"
-          done
+          helm template "$(basename "$RESOURCE")" "$RESOURCE" --values "$RESOURCE/variables.json" > "$RUNNER_TEMP/manifests.yaml" || {
+            echo "::error::$RESOURCE does not render with helm template"
+            exit 1
+          }
+          yq '.' "$RUNNER_TEMP/manifests.yaml" > /dev/null || { echo "::error::$RESOURCE renders invalid YAML"; exit 1; }
+          cat "$RUNNER_TEMP/manifests.yaml"
           echo "Argo CD will sync $RESOURCE after the merge into main"

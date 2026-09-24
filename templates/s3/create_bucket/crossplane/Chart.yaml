@@ -1,0 +1,5 @@
+apiVersion: v2
+name: s3-bucket
+description: Remote storage implemented with the Crossplane S3Bucket building block
+type: application
+version: 0.1.0

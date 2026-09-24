@@ -1,0 +1,11 @@
+{% set overridden = ["object_lock_enabled", "object_lock_retention_type", "object_lock_retention_days"] %}
+object_lock_enabled: true
+object_lock_retention_type: {{ security.object_lock_retention_type }}
+object_lock_retention_days: {{ parameters.retention_days | int }}
+
+{# old values #}
+{% for key, value in old_values %}
+{% if not (key in overridden) %}
+{{ key }}: {{ value | dump }}
+{% endif %}
+{% endfor %}
