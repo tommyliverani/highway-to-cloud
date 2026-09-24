@@ -57,6 +57,7 @@ jobs:
           const REPO_ROOT = process.cwd();
           const STATE_DIR = process.env.STATE_DIR || path.join(os.tmpdir(), "idp-state");
           const RESERVED_KEYS = ["parameters", "old_values"];
+          const DATA_EXTENSIONS = [".json", ".yaml", ".yml"];
 
           const env = new nunjucks.Environment(null, {
             autoescape: false,
@@ -89,18 +90,21 @@ jobs:
             return yaml.load(fs.readFileSync(file, "utf8"));
           }
 
-          // This demo is a monorepo: every *_url must point to the repository running the workflow.
-          function assertCurrentRepo(url, field) {
-            const match = String(url || "").trim()
-              .match(/^(?:git@github\.com:|https:\/\/github\.com\/)([^/]+\/[^/]+?)(?:\.git)?\/?$/);
+          // Sources follow the Terraform module convention <repo>//<path>, e.g.
+          // github.com/owner/repo//templates/s3 (https://github.com/... and git@github.com:....git also work).
+          // This demo is a monorepo: the repository must be the one running the workflow.
+          function resolveSource(source, field) {
+            const match = String(source || "").trim()
+              .match(/^(?:https:\/\/github\.com\/|git@github\.com:|github\.com\/)([^/]+\/[^/]+?)(?:\.git)?\/\/(.+)$/);
+            if (!match) fail(`${field} "${source}" is not a <repo>//<path> source (e.g. github.com/owner/repo//path)`);
             const current = (process.env.GITHUB_REPOSITORY || "").toLowerCase();
-            if (!match) fail(`${field} "${url}" is not a GitHub repository URL`);
             if (current && match[1].toLowerCase() !== current) {
-              fail(`${field} "${url}" is not this repository (${current}): multi-repo is not supported in this demo`);
+              fail(`${field} "${source}" is not this repository (${current}): multi-repo is not supported in this demo`);
             }
+            return repoPath(match[2], field);
           }
 
-          // Resolves a repo-relative path (e.g. "/resources/foo") and refuses anything outside the repo.
+          // Resolves a repo-relative path (e.g. "resources/foo") and refuses anything outside the repo.
           function repoPath(p, field) {
             if (!/^[A-Za-z0-9._/-]+$/.test(String(p || ""))) fail(`${field} "${p}" contains invalid characters`);
             const resolved = path.resolve(REPO_ROOT, String(p || "").replace(/^\/+/, ""));
@@ -132,15 +136,14 @@ jobs:
 
             const values = {};
             interfaces.forEach((item, i) => {
-              const { alias, repo_url: repoUrl, path: filePath } = item || {};
-              if (!alias || !filePath) fail(`interfaces.yaml entry ${i} needs alias and path`);
+              const { alias, source } = item || {};
+              if (!alias || !source) fail(`interfaces.yaml entry ${i} needs alias and source`);
               if (RESERVED_KEYS.includes(alias)) fail(`Interface alias "${alias}" is reserved`);
               if (alias in values) fail(`Interface alias "${alias}" is declared twice`);
-              assertCurrentRepo(repoUrl, `interfaces[${i}].repo_url`);
-              const file = repoPath(filePath, `interfaces[${i}].path`);
-              if (!fs.existsSync(file)) fail(`Interface file ${filePath} not found`);
+              const file = resolveSource(source, `interfaces[${i}].source`);
+              if (!fs.existsSync(file)) fail(`Interface ${source} not found`);
               values[alias] = loadYaml(file) || {};
-              console.log(`Loaded interface ${filePath} as "${alias}"`);
+              console.log(`Loaded interface ${path.relative(REPO_ROOT, file)} as "${alias}"`);
             });
 
             values.parameters = parameters;
@@ -157,10 +160,10 @@ jobs:
             const render = (v) => (typeof v === "string" ? env.renderString(v, values).trim() : v);
             const templates = raw.map((entry, i) => {
               const t = Object.fromEntries(Object.entries(entry || {}).map(([k, v]) => [k, render(v)]));
-              for (const key of ["template_url", "template_path", "resource_url", "resource_path", "default_tool"]) {
+              for (const key of ["template", "resource", "default_tool"]) {
                 if (!t[key]) fail(`templates.yaml entry ${i} is missing ${key}`);
               }
-              console.log(`Template ${t.template_path} -> ${t.resource_path} (default tool: ${t.default_tool})`);
+              console.log(`Template ${t.template} -> ${t.resource} (default tool: ${t.default_tool})`);
               return t;
             });
 
@@ -171,19 +174,20 @@ jobs:
           function loadResources() {
             const templates = readState("templates");
             const resources = templates.map((t, i) => {
-              assertCurrentRepo(t.resource_url, `templates[${i}].resource_url`);
-              const dir = repoPath(t.resource_path, `templates[${i}].resource_path`);
+              const dir = resolveSource(t.resource, `templates[${i}].resource`);
+              const name = path.relative(REPO_ROOT, dir);
               const exists = fs.existsSync(dir);
-              const variablesFile = path.join(dir, "variables.yaml");
+              const variablesFiles = DATA_EXTENSIONS.map((ext) => path.join(dir, `variables${ext}`)).filter((f) => fs.existsSync(f));
               const metadataFile = path.join(dir, "metadata.yaml");
+              if (variablesFiles.length > 1) fail(`${name} has more than one variables file`);
 
               const resource = { ...t, exists, existing_tool: null, old_values: null };
-              if (exists && fs.existsSync(variablesFile)) resource.old_values = loadYaml(variablesFile) || {};
+              if (variablesFiles.length) resource.old_values = loadYaml(variablesFiles[0]) || {};
               if (exists && fs.existsSync(metadataFile)) resource.existing_tool = (loadYaml(metadataFile) || {}).tool || null;
 
               console.log(exists
-                ? `Resource ${t.resource_path} exists (tool: ${resource.existing_tool || "none"}, old values: ${resource.old_values ? "yes" : "no"})`
-                : `Resource ${t.resource_path} is new`);
+                ? `Resource ${name} exists (tool: ${resource.existing_tool || "none"}, old values: ${resource.old_values ? "yes" : "no"})`
+                : `Resource ${name} is new`);
               return resource;
             });
 
@@ -202,30 +206,57 @@ jobs:
             return lines.length ? `${lines.join("\n")}\n` : "";
           };
 
-          // 4) Copy templates/<path>/<tool> into the resource, rendering *.njk (-> *.yaml) with the values.
+          // Data files (.json/.yaml/.yml) are parsed as YAML (JSON is a subset), so broken output fails here
+          // and .json targets are always valid JSON even if the template is written in YAML syntax.
+          // Switching format (e.g. variables.yaml -> variables.json) removes the stale sibling.
+          function writeRendered(dest, rendered, source) {
+            const ext = path.extname(dest);
+            let content = rendered;
+            if (DATA_EXTENSIONS.includes(ext)) {
+              let data;
+              try {
+                data = yaml.load(rendered);
+              } catch (e) {
+                fail(`${source} does not render valid YAML/JSON: ${e.message}`);
+              }
+              content = ext === ".json" ? `${JSON.stringify(data ?? {}, null, 2)}\n` : removeBlankLines(rendered);
+              const base = dest.slice(0, -ext.length);
+              for (const other of DATA_EXTENSIONS.filter((e) => e !== ext)) {
+                if (fs.existsSync(base + other)) {
+                  fs.rmSync(base + other);
+                  console.log(`Removed  ${path.relative(REPO_ROOT, base + other)} (replaced by ${ext})`);
+                }
+              }
+            }
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.writeFileSync(dest, content);
+            console.log(`Rendered ${path.relative(REPO_ROOT, dest)}`);
+          }
+
+          // 4) Copy <template>/<tool> into the resource. <name>.<ext>.njk renders to <name>.<ext>;
+          //    a bare <name>.njk renders to <name>.yaml. Other files are copied as-is.
           function renderResources() {
             const values = readState("values");
             const resources = readState("resources");
             const summary = [];
 
             resources.forEach((r, i) => {
+              const resourceDir = resolveSource(r.resource, `templates[${i}].resource`);
               const tool = r.existing_tool || r.default_tool;
-              if (!/^[A-Za-z0-9_-]+$/.test(tool)) fail(`Invalid tool "${tool}" for ${r.resource_path}`);
-              assertCurrentRepo(r.template_url, `templates[${i}].template_url`);
-              const templateDir = repoPath(path.posix.join(r.template_path, tool), `templates[${i}].template_path`);
-              if (!fs.existsSync(templateDir)) fail(`Template ${r.template_path} has no "${tool}" implementation`);
+              if (!/^[A-Za-z0-9_-]+$/.test(tool)) fail(`Invalid tool "${tool}" for ${r.resource}`);
+              const templateDir = path.join(resolveSource(r.template, `templates[${i}].template`), tool);
+              const templateName = path.relative(REPO_ROOT, templateDir);
+              if (!fs.existsSync(templateDir)) fail(`Template ${r.template} has no "${tool}" implementation`);
 
-              const resourceDir = repoPath(r.resource_path, `templates[${i}].resource_path`);
               const context = { ...values };
               if (r.old_values) context.old_values = r.old_values;
 
               for (const rel of listFiles(templateDir)) {
                 const src = path.join(templateDir, rel);
                 if (rel.endsWith(".njk")) {
-                  const dest = path.join(resourceDir, rel.replace(/\.njk$/, ".yaml"));
-                  fs.mkdirSync(path.dirname(dest), { recursive: true });
-                  fs.writeFileSync(dest, removeBlankLines(env.renderString(fs.readFileSync(src, "utf8"), context)));
-                  console.log(`Rendered ${path.relative(REPO_ROOT, dest)}`);
+                  const target = rel.slice(0, -".njk".length);
+                  const dest = path.join(resourceDir, path.extname(target) ? target : `${target}.yaml`);
+                  writeRendered(dest, env.renderString(fs.readFileSync(src, "utf8"), context), rel);
                 } else {
                   const dest = path.join(resourceDir, rel);
                   fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -241,7 +272,7 @@ jobs:
               }
 
               summary.push(`- \`${path.relative(REPO_ROOT, resourceDir)}\` — ${r.exists ? "updated" : "created"}, ` +
-                `template \`${r.template_path}/${tool}\``);
+                `template \`${templateName}\``);
             });
 
             fs.writeFileSync(path.join(STATE_DIR, "summary.md"), `${summary.join("\n")}\n`);

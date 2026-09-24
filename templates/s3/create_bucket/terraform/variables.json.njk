@@ -1,13 +1,10 @@
 {# Parameters#}
 bucket_name: {{ parameters.name | dump }}
-title: {{ (parameters.title or parameters.name) | dump }}
-description: {{ (parameters.description or "") | dump }}
 
 {# Platform #}
 force_destroy: {{ platform.force_destroy }}
 region: {{ platform.region }}
 account_id: {{ platform.account_id }}
-provider: aws
 
 {# Security #}
 kms_key: {{ security.kms_key }}

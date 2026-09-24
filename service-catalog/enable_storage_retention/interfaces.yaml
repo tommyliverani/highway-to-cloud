@@ -1,3 +1,2 @@
 - alias: security
-  repo_url: git@github.com:tommyliverani/highway-to-cloud.git
-  path: /interfaces/security/s3.yaml
+  source: github.com/tommyliverani/highway-to-cloud//interfaces/security/s3.yaml
