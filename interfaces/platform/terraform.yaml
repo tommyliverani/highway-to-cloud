@@ -1,2 +1,2 @@
-state_bucket: highway-to-cloud-tfstate-311618538285
+state_bucket: tf-state-bucket-311618538285-us-east-1-an
 state_region: us-east-1
