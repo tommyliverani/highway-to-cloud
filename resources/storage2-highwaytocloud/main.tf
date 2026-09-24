@@ -10,5 +10,16 @@ module "s3" {
   object_lock_retention_type = var.object_lock_enabled ? var.object_lock_retention_type : null
   object_lock_retention_days = var.object_lock_enabled ? var.object_lock_retention_days : null
   tags = var.tags
+
+  intelligent_tiering_enabled           = var.intelligent_tiering_enabled
+  intelligent_tiering_archive_days      = var.intelligent_tiering_archive_days
+  intelligent_tiering_deep_archive_days = var.intelligent_tiering_deep_archive_days
+
+  lifecycle_rule_enabled                       = var.lifecycle_rule_enabled
+  lifecycle_transition_days                    = var.lifecycle_transition_days
+  lifecycle_transition_storage_class           = var.lifecycle_transition_storage_class
+  lifecycle_expiration_days                    = var.lifecycle_expiration_days
+  lifecycle_noncurrent_version_expiration_days = var.lifecycle_noncurrent_version_expiration_days
+  lifecycle_abort_multipart_days               = var.lifecycle_abort_multipart_days
 }
 

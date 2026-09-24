@@ -2,8 +2,8 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 
 metadata:
-  name: configure-storage-lifecycle
-  title: Configure storage lifecycle
+  name: enable-storage-lifecycle-rule
+  title: Enable storage lifecycle rule
   description: Moves the data of an existing remote storage to cheaper storage and deletes it after a period of time
   idpServiceId: enable_lifecycle_rule
 
@@ -12,7 +12,7 @@ spec:
   type: infrastructure
 
   parameters:
-    - title: Lifecycle configuration
+    - title: Lifecycle rule configuration
       description: Select the storage and what happens to its data over time
       required:
         - resource
@@ -24,7 +24,7 @@ spec:
         resource:
           title: Storage
           type: string
-          description: Existing remote storage to configure
+          description: Existing remote storage to enable the lifecycle rule on
           ui:field: EntityPicker
           ui:options:
             allowArbitraryValues: false
@@ -46,8 +46,8 @@ spec:
           oneOf:
             - const: infrequent_access
               title: Infrequent access (cheaper, same speed)
-            - const: auto_tiering
-              title: Automatic tiering (priced by access pattern)
+            - const: intelligent_tiering
+              title: Intelligent tiering (priced by access pattern)
             - const: archive
               title: Archive (cheap, restore in minutes to hours)
             - const: deep_archive

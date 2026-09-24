@@ -2,8 +2,8 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 
 metadata:
-  name: enable-storage-auto-tiering
-  title: Enable storage auto tiering
+  name: enable-storage-intelligent-tiering
+  title: Enable storage intelligent tiering
   description: Automatically moves the data of an existing remote storage that is not accessed for a long time to cheaper archive storage
   idpServiceId: enable_intelligent_tiering
 
@@ -12,7 +12,7 @@ spec:
   type: infrastructure
 
   parameters:
-    - title: Auto tiering configuration
+    - title: Intelligent tiering configuration
       description: Select the storage and how far data can be archived
       required:
         - resource
@@ -21,7 +21,7 @@ spec:
         resource:
           title: Storage
           type: string
-          description: Existing remote storage to enable auto tiering on
+          description: Existing remote storage to enable intelligent tiering on
           ui:field: EntityPicker
           ui:options:
             allowArbitraryValues: false
