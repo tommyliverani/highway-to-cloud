@@ -52,6 +52,25 @@ jobs:
           fi
           echo "VAR_FILE=$var_file" >> "$GITHUB_ENV"
 
+      # Turns the opaque backend error (STS InvalidClientTokenId) into an explicit diagnosis.
+      - name: Check AWS credentials
+        run: |
+          if [[ ! "$AWS_ACCESS_KEY_ID" =~ ^(AKIA|ASIA)[A-Z0-9]{16}$ ]]; then
+            echo "::error::AWS_ADMIN_ACCESS_KEY is not an access key ID (length ${#AWS_ACCESS_KEY_ID}, expected 20 chars starting with AKIA): wrong value, swapped secrets or extra spaces/newlines"
+            exit 1
+          fi
+          region=$(grep -Po 'region\s*=\s*"\K[^"]+' "$RESOURCE/terraform.tf" | head -1)
+          echo "Identity (us-east-1):"
+          aws sts get-caller-identity --region us-east-1 --query Arn --output text || {
+            echo "::error::AWS rejects the credentials: the access key is deleted/inactive or the secret key does not match it"
+            exit 1
+          }
+          echo "Identity in the state region ($region):"
+          aws sts get-caller-identity --region "$region" --query Arn --output text || {
+            echo "::error::The credentials are valid but not in $region: the region is not enabled for this AWS account"
+            exit 1
+          }
+
       # The backend (state bucket, region, key) is written in the resource's terraform.tf at render time.
       - name: Terraform init
         run: terraform -chdir="$RESOURCE" init -input=false
