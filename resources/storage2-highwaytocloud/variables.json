@@ -1,7 +1,7 @@
 {
   "lifecycle_rule_enabled": true,
   "lifecycle_transition_days": 30,
-  "lifecycle_transition_storage_class": "DEEP_ARCHIVE",
+  "lifecycle_transition_storage_class": "STANDARD_IA",
   "lifecycle_expiration_days": 0,
   "lifecycle_noncurrent_version_expiration_days": 30,
   "lifecycle_abort_multipart_days": 7,
