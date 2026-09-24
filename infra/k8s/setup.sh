@@ -30,6 +30,8 @@ set +a
 ARGOCD_NAMESPACE="argocd"
 CROSSPLANE_NAMESPACE="crossplane-system"
 ARGOCD_PORT="${ARGOCD_PORT:-8080}"
+REPO_REVISION="${REPO_REVISION:-main}"
+ARGO_APP_PATH="resources/argo-app"
 
 # ============================================================
 # Check dependencies
@@ -119,6 +121,38 @@ stringData:
 EOF
 
 # ============================================================
+# Create Argo CD Application (resources/argo-app)
+# ============================================================
+
+# Syncs the manifests under resources/argo-app from main, the branch that only holds deployed resources.
+echo "==> Creating Argo CD Application argo-app (${REPO_REVISION}:${ARGO_APP_PATH})"
+
+kubectl apply -n "${ARGOCD_NAMESPACE}" -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-app
+  namespace: ${ARGOCD_NAMESPACE}
+spec:
+  project: default
+  source:
+    repoURL: ${REPO_URL}
+    targetRevision: ${REPO_REVISION}
+    path: ${ARGO_APP_PATH}
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ${ARGOCD_NAMESPACE}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+EOF
+
+# ============================================================
 # Status
 # ============================================================
 
@@ -136,6 +170,10 @@ kubectl get pods -n "${ARGOCD_NAMESPACE}"
 echo
 echo "Crossplane:"
 kubectl get pods -n "${CROSSPLANE_NAMESPACE}"
+
+echo
+echo "Application:"
+kubectl get application argo-app -n "${ARGOCD_NAMESPACE}"
 
 
 # ============================================================
