@@ -31,7 +31,7 @@ ARGOCD_NAMESPACE="argocd"
 CROSSPLANE_NAMESPACE="crossplane-system"
 ARGOCD_PORT="${ARGOCD_PORT:-8080}"
 REPO_REVISION="${REPO_REVISION:-main}"
-ARGO_APP_PATH="resources/argo-app"
+ARGO_APP_PATH="resources/argo-apps"
 
 # ============================================================
 # Check dependencies

@@ -16,6 +16,7 @@ spec:
       description: Select the storage and how far data can be archived
       required:
         - resource
+        - archive_days
       properties:
 
         resource:
@@ -29,11 +30,39 @@ spec:
               - kind: Resource
                 spec.type: storage
 
+        archive_days:
+          title: Archive after (days)
+          type: integer
+          minimum: 90
+          maximum: 730
+          default: 90
+          description: Days without access before data moves to the archive (90-730)
+
         deep_archive:
           title: Deep archive
           type: boolean
           default: false
           description: Also move data not accessed for a very long time to the cheapest archive, which is the slowest to restore
+
+      # The deep archive days field appears only when deep archive is enabled.
+      dependencies:
+        deep_archive:
+          oneOf:
+            - properties:
+                deep_archive:
+                  const: false
+            - properties:
+                deep_archive:
+                  const: true
+                deep_archive_days:
+                  title: Deep archive after (days)
+                  type: integer
+                  minimum: 180
+                  maximum: 730
+                  default: 180
+                  description: Days without access before data moves to the deep archive (180-730)
+              required:
+                - deep_archive_days
 
   steps:
 
@@ -50,7 +79,8 @@ spec:
           service_id: enable_intelligent_tiering
           parameters: >-
             {"name": ${{ parameters.resource | parseEntityRef | pick('name') | dump }},
-            "deep_archive": ${{ parameters.deep_archive | dump }}}
+            "archive_days": ${{ parameters.archive_days }},
+            "deep_archive_days": ${{ parameters.deep_archive_days if parameters.deep_archive else 0 }}}
 
     - id: log-workflow-link
       name: Print GitHub Actions link
