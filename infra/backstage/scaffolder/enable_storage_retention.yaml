@@ -50,14 +50,10 @@ spec:
 
         workflowInputs:
 
-          operation_id: enable_storage_retention
-          resource_id: ${{ parameters.resource | parseEntityRef | pick('name') }}
-
-          backstage_params: >-
-            {
-              "name": "${{ parameters.resource | parseEntityRef | pick('name') }}",
-              "retention_days": ${{ parameters.retention_days }}
-            }
+          service_id: enable_storage_retention
+          parameters: >-
+            {"name": ${{ parameters.resource | parseEntityRef | pick('name') | dump }},
+            "retention_days": ${{ parameters.retention_days }}}
 
     - id: log-workflow-link
       name: Print GitHub Actions link

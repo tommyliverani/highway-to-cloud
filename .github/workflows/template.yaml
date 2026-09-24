@@ -3,16 +3,12 @@ name: templater
 on:
   workflow_dispatch:
     inputs:
-      operation_id:
-        description: 'Operation ID (matches the folder name inside ./templates)'
+      service_id:
+        description: 'Service ID (folder name in ./service-catalog, idpServiceId of the Backstage template)'
         required: true
         type: string
-      backstage_params:
-        description: 'JSON string containing Backstage input parameters'
-        required: true
-        type: string
-      resource_id:
-        description: 'Target Resource ID (matches the destination folder inside ./resources)'
+      parameters:
+        description: 'JSON object with the Backstage input parameters'
         required: true
         type: string
 
@@ -24,271 +20,258 @@ jobs:
   templater:
     runs-on: ubuntu-latest
 
+    # Inputs reach the script only through env vars, never interpolated into code.
+    env:
+      SERVICE_ID: ${{ inputs.service_id }}
+      PARAMETERS: ${{ inputs.parameters }}
+
     steps:
-      # 1) Clone the repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2) Setup Node.js and install core nunjucks package
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install Nunjucks Core
-        run: npm install nunjucks js-yaml
 
-      # 3) Aggregate interfaces and JSON to a temporary context JSON file
-      - name: Generate template context
+      # Dependencies, script and state live outside the checkout, so they never end up in the PR.
+      - name: Prepare templating script
         run: |
-          node -e '
+          IDP_DIR="$RUNNER_TEMP/idp"
+          mkdir -p "$IDP_DIR"
+          npm install --no-save --silent --prefix "$IDP_DIR" nunjucks@3 js-yaml@4
+          echo "NODE_PATH=$IDP_DIR/node_modules" >> "$GITHUB_ENV"
+          echo "STATE_DIR=$IDP_DIR/state" >> "$GITHUB_ENV"
+          echo "IDP_SCRIPT=$IDP_DIR/template.js" >> "$GITHUB_ENV"
+
+          # Quoted delimiter: the shell does not expand anything inside the script.
+          cat > "$IDP_DIR/template.js" <<'EOF'
+          // IDP templating process: node template.js <values|templates|load|render>
+          // Env: SERVICE_ID, PARAMETERS (JSON), GITHUB_REPOSITORY, STATE_DIR (JSON files passed between steps).
           const fs = require("fs");
+          const os = require("os");
           const path = require("path");
           const yaml = require("js-yaml");
+          const nunjucks = require("nunjucks");
 
-          const interfaceDir = "./interfaces/${{ github.event.inputs.operation_id }}";
-          const contextFile = "/tmp/context.json";
-          const context = {};
+          const REPO_ROOT = process.cwd();
+          const STATE_DIR = process.env.STATE_DIR || path.join(os.tmpdir(), "idp-state");
+          const RESERVED_KEYS = ["parameters", "old_values"];
 
-          if (fs.existsSync(interfaceDir)) {
-            for (const entry of fs.readdirSync(interfaceDir, { withFileTypes: true })) {
-              if (!entry.isDirectory()) {
-                continue;
-              }
-
-              const interfaceId = entry.name;
-              const variablesPath = path.join(interfaceDir, interfaceId, "variables.yaml");
-              if (!fs.existsSync(variablesPath)) {
-                continue;
-              }
-
-              context[interfaceId] = yaml.load(fs.readFileSync(variablesPath, "utf8")) || {};
-            }
-          }
-
-          context.parameters = JSON.parse(`${{ github.event.inputs.backstage_params }}`);
-          fs.writeFileSync(contextFile, JSON.stringify(context, null, 2));
-          '
-
-      # 4) Render templates and copy declared building blocks
-      - name: Render Nunjucks templates and copy building blocks
-        run: |
-          node -e '
-          const njk = require("nunjucks");
-          const fs = require("fs");
-          const path = require("path");
-          const yaml = require("js-yaml");
-
-          const srcDir = "./templates/${{ github.event.inputs.operation_id }}";
-          const destDir = "./resources/${{ github.event.inputs.resource_id }}";
-          const destVariablesPath = path.join(destDir, "variables.yaml");
-          const destCatalogInfoPath = path.join(destDir, "catalog-info.yaml");
-          const rawContext = JSON.parse(fs.readFileSync("/tmp/context.json", "utf8"));
-
-          fs.mkdirSync(destDir, { recursive: true });
-
-          // Risolviamo i typo mappando le variabili in un contesto piatto
-          const parameters = rawContext.parameters || {};
-          const platform = rawContext.platform || {};
-          const security = rawContext.security || rawContext.secuirty || {};
-          const secuirty = rawContext.security || rawContext.secuirty || {};
-
-          const baseContext = {
-            parameters,
-            prameters: parameters, // Mappa il typo {{ prameters.title }} in catalog-info.njk
-            platform,
-            security,
-            secuirty               // Mappa il typo {{ secuirty.kms_key }} in variables.njk
-          };
-
-          const env = njk.configure(srcDir, {
+          const env = new nunjucks.Environment(null, {
             autoescape: false,
             trimBlocks: true,
-            lstripBlocks: true
+            lstripBlocks: true,
+            throwOnUndefined: false,
           });
+          env.addFilter("kebabCase", (s) =>
+            s ? String(s).trim().replace(/([a-z])([A-Z])/g, "$1-$2").replace(/[\s_]+/g, "-").toLowerCase() : "");
+          env.addFilter("camelCase", (s) =>
+            s ? String(s).trim().replace(/[-_\s]+(.)?/g, (_, c) => (c ? c.toUpperCase() : "")) : "");
+          env.addFilter("snakeCase", (s) =>
+            s ? String(s).trim().replace(/([a-z])([A-Z])/g, "$1_$2").replace(/[\s-]+/g, "_").toLowerCase() : "");
 
-          const removeBlankLines = (content) => {
-            const normalized = content
-              .split(/\r?\n/)
-              .filter((line) => line.trim() !== "")
-              .join("\n");
-
-            return normalized === "" ? normalized : `${normalized}\n`;
-          };
-
-          // Filtro kebabCase per il metadata.name di catalog-info.njk
-          env.addFilter("kebabCase", (str) => {
-            if (!str) return "";
-            return str.toString().trim()
-              .replace(/([a-z])([A-Z])/g, "$1-$2")
-              .replace(/[\s_]+/g, "-")
-              .toLowerCase();
-          });
-
-          env.addFilter("camelCase", (str) => {
-            if (!str) return "";
-            return str.toString().trim().replace(/[-_\s]+(.)?/g, (_, c) => c ? c.toUpperCase() : "");
-          });
-
-          env.addFilter("snakeCase", (str) => {
-            if (!str) return "";
-            return str.toString().trim().replace(/([a-z])([A-Z])/g, "$1_$2").replace(/[\s-]+/g, "_").toLowerCase();
-          });
-
-          const hasSourceCatalogInfo = fs.existsSync(path.join(srcDir, "catalog-info.njk"));
-          const hasSourceVariablesTemplate = fs.existsSync(path.join(srcDir, "variables.njk"));
-          const hasSourceVariablesFile = fs.existsSync(path.join(srcDir, "variables.yaml"));
-          const templates = [];
-
-          const loadExistingValues = (targetPath) => {
-            if (!fs.existsSync(targetPath)) {
-              return {};
-            }
-
-            const parsed = yaml.load(fs.readFileSync(targetPath, "utf8"));
-            return parsed && typeof parsed === "object" ? parsed : {};
-          };
-
-          const renderTemplate = (templateFile, outputPath) => {
-            console.log(`Rendering ${templateFile}...`);
-            const rendered = removeBlankLines(
-              env.render(templateFile, {
-                ...baseContext,
-                values: loadExistingValues(outputPath)
-              })
-            );
-            fs.writeFileSync(outputPath, rendered);
-          };
-
-          if (hasSourceVariablesTemplate) {
-            templates.push("variables.njk");
+          function fail(message) {
+            console.error(`::error::${message}`);
+            process.exit(1);
           }
 
-          if (hasSourceCatalogInfo) {
-            templates.unshift("catalog-info.njk");
-          } else {
-            console.log("catalog-info.njk not found in source template, skipping catalog-info rendering and building block copy.");
+          function readState(name) {
+            return JSON.parse(fs.readFileSync(path.join(STATE_DIR, `${name}.json`), "utf8"));
           }
 
-          templates.forEach(file => {
-            const srcPath = path.join(srcDir, file);
-            if (fs.existsSync(srcPath)) {
-              const outputName = file.replace(".njk", ".yaml");
-              renderTemplate(file, path.join(destDir, outputName));
-            }
-          });
-
-          if (!hasSourceVariablesTemplate && hasSourceVariablesFile) {
-            console.log("variables.njk not found, copying variables.yaml from source template.");
-            fs.copyFileSync(path.join(srcDir, "variables.yaml"), destVariablesPath);
+          function writeState(name, data) {
+            fs.mkdirSync(STATE_DIR, { recursive: true });
+            fs.writeFileSync(path.join(STATE_DIR, `${name}.json`), JSON.stringify(data, null, 2));
           }
 
-          if (hasSourceCatalogInfo) {
-            const catalogInfoPath = path.join(destDir, "catalog-info.yaml");
-            if (!fs.existsSync(catalogInfoPath)) {
-              throw new Error(`Generated catalog-info.yaml not found in ${destDir}`);
+          function loadYaml(file) {
+            return yaml.load(fs.readFileSync(file, "utf8"));
+          }
+
+          // This demo is a monorepo: every *_url must point to the repository running the workflow.
+          function assertCurrentRepo(url, field) {
+            const match = String(url || "").trim()
+              .match(/^(?:git@github\.com:|https:\/\/github\.com\/)([^/]+\/[^/]+?)(?:\.git)?\/?$/);
+            const current = (process.env.GITHUB_REPOSITORY || "").toLowerCase();
+            if (!match) fail(`${field} "${url}" is not a GitHub repository URL`);
+            if (current && match[1].toLowerCase() !== current) {
+              fail(`${field} "${url}" is not this repository (${current}): multi-repo is not supported in this demo`);
+            }
+          }
+
+          // Resolves a repo-relative path (e.g. "/resources/foo") and refuses anything outside the repo.
+          function repoPath(p, field) {
+            if (!/^[A-Za-z0-9._/-]+$/.test(String(p || ""))) fail(`${field} "${p}" contains invalid characters`);
+            const resolved = path.resolve(REPO_ROOT, String(p || "").replace(/^\/+/, ""));
+            if (resolved !== REPO_ROOT && !resolved.startsWith(REPO_ROOT + path.sep)) {
+              fail(`${field} "${p}" points outside the repository`);
+            }
+            return resolved;
+          }
+
+          function serviceDir() {
+            const serviceId = process.env.SERVICE_ID || "";
+            if (!/^[A-Za-z0-9_-]+$/.test(serviceId)) fail(`Invalid service id "${serviceId}"`);
+            const dir = repoPath(`service-catalog/${serviceId}`, "service_id");
+            if (!fs.existsSync(dir)) fail(`Service "${serviceId}" not found in service-catalog/`);
+            return dir;
+          }
+
+          // 1) Merge every interface of the service (under its alias) with the input parameters.
+          function buildValues() {
+            let parameters;
+            try {
+              parameters = JSON.parse(process.env.PARAMETERS || "{}");
+            } catch (e) {
+              fail(`PARAMETERS is not valid JSON: ${e.message}`);
             }
 
-            const catalogInfo = yaml.load(fs.readFileSync(catalogInfoPath, "utf8")) || {};
-            const metadata = catalogInfo.metadata || {};
-            const declaredBlocks = metadata.building_blocks || metadata.builcing_blocks || metadata.build_blocks || [];
+            const interfaces = loadYaml(path.join(serviceDir(), "interfaces.yaml")) || [];
+            if (!Array.isArray(interfaces)) fail("interfaces.yaml must be a list");
 
-            if (!Array.isArray(declaredBlocks)) {
-              throw new Error("metadata.building_blocks must be an array");
-            }
+            const values = {};
+            interfaces.forEach((item, i) => {
+              const { alias, repo_url: repoUrl, path: filePath } = item || {};
+              if (!alias || !filePath) fail(`interfaces.yaml entry ${i} needs alias and path`);
+              if (RESERVED_KEYS.includes(alias)) fail(`Interface alias "${alias}" is reserved`);
+              if (alias in values) fail(`Interface alias "${alias}" is declared twice`);
+              assertCurrentRepo(repoUrl, `interfaces[${i}].repo_url`);
+              const file = repoPath(filePath, `interfaces[${i}].path`);
+              if (!fs.existsSync(file)) fail(`Interface file ${filePath} not found`);
+              values[alias] = loadYaml(file) || {};
+              console.log(`Loaded interface ${filePath} as "${alias}"`);
+            });
 
-            const copyDirectory = (sourceDir, targetDir) => {
-              fs.mkdirSync(targetDir, { recursive: true });
-              for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
-                const sourcePath = path.join(sourceDir, entry.name);
-                const targetPath = path.join(targetDir, entry.name);
-                if (entry.isDirectory()) {
-                  copyDirectory(sourcePath, targetPath);
-                } else {
-                  fs.copyFileSync(sourcePath, targetPath);
-                }
+            values.parameters = parameters;
+            writeState("values", values);
+          }
+
+          // 2) Render templates.yaml with the values. Each string is rendered after YAML parsing,
+          //    so input parameters cannot inject extra YAML keys.
+          function resolveTemplates() {
+            const values = readState("values");
+            const raw = loadYaml(path.join(serviceDir(), "templates.yaml")) || [];
+            if (!Array.isArray(raw)) fail("templates.yaml must be a list");
+
+            const render = (v) => (typeof v === "string" ? env.renderString(v, values).trim() : v);
+            const templates = raw.map((entry, i) => {
+              const t = Object.fromEntries(Object.entries(entry || {}).map(([k, v]) => [k, render(v)]));
+              for (const key of ["template_url", "template_path", "resource_url", "resource_path", "default_tool"]) {
+                if (!t[key]) fail(`templates.yaml entry ${i} is missing ${key}`);
               }
-            };
+              console.log(`Template ${t.template_path} -> ${t.resource_path} (default tool: ${t.default_tool})`);
+              return t;
+            });
 
-            const normalizeRepoPath = (repoPath) => {
-              if (!repoPath) {
-                return "";
-              }
-              return repoPath.replace(/^\/+/, "").replace(/^\.\//, "");
-            };
+            writeState("templates", templates);
+          }
 
-            declaredBlocks.forEach((block, index) => {
-              if (!block || typeof block !== "object") {
-                throw new Error(`Building block at index ${index} is invalid`);
-              }
+          // 3) For each template, detect whether the resource already exists and load its previous state.
+          function loadResources() {
+            const templates = readState("templates");
+            const resources = templates.map((t, i) => {
+              assertCurrentRepo(t.resource_url, `templates[${i}].resource_url`);
+              const dir = repoPath(t.resource_path, `templates[${i}].resource_path`);
+              const exists = fs.existsSync(dir);
+              const variablesFile = path.join(dir, "variables.yaml");
+              const metadataFile = path.join(dir, "metadata.yaml");
 
-              const subpathValue = block.subpath || block.target_subpath;
-              const sourceRepoPath = normalizeRepoPath(block.source_repo_path || block.repo_path);
-              const sourceRepoUrl = block.source_repo_url || block.repo_url || "";
+              const resource = { ...t, exists, existing_tool: null, old_values: null };
+              if (exists && fs.existsSync(variablesFile)) resource.old_values = loadYaml(variablesFile) || {};
+              if (exists && fs.existsSync(metadataFile)) resource.existing_tool = (loadYaml(metadataFile) || {}).tool || null;
 
-              if (!subpathValue) {
-                throw new Error(`Building block at index ${index} is missing subpath`);
-              }
+              console.log(exists
+                ? `Resource ${t.resource_path} exists (tool: ${resource.existing_tool || "none"}, old values: ${resource.old_values ? "yes" : "no"})`
+                : `Resource ${t.resource_path} is new`);
+              return resource;
+            });
 
-              if (!sourceRepoPath) {
-                throw new Error(`Building block at index ${index} is missing source_repo_path`);
-              }
+            writeState("resources", resources);
+          }
 
-              const normalizedSubpath = subpathValue.replace(/^\.\//, "").replace(/^\/+/, "");
-              const sourceDir = path.resolve(process.cwd(), sourceRepoPath);
-              const targetDir = path.resolve(destDir, normalizedSubpath);
-
-              if (sourceRepoUrl && !sourceRepoUrl.includes("highway-to-cloud")) {
-                throw new Error(`Unsupported source_repo_url for building block ${sourceRepoUrl}`);
-              }
-
-              if (!fs.existsSync(sourceDir) || !fs.statSync(sourceDir).isDirectory()) {
-                throw new Error(`Building block source directory not found: ${sourceDir}`);
-              }
-
-              if (fs.existsSync(targetDir)) {
-                console.log(`Building block already present at ${targetDir}, skipping copy.`);
-                return;
-              }
-
-              console.log(`Copying building block ${sourceRepoPath} to ${targetDir}`);
-              copyDirectory(sourceDir, targetDir);
+          function listFiles(dir, base = dir) {
+            return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+              const full = path.join(dir, entry.name);
+              return entry.isDirectory() ? listFiles(full, base) : [path.relative(base, full)];
             });
           }
 
-          // Render variables.njk files in subpath directories of the template
-          // (after building blocks are copied so the directory existence check is not affected)
-          for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
-            if (!entry.isDirectory()) continue;
-            const subpath = entry.name;
-            const subpathTemplateFile = path.join(subpath, "variables.njk");
-            if (fs.existsSync(path.join(srcDir, subpathTemplateFile))) {
-              const subpathDestDir = path.join(destDir, subpath);
-              fs.mkdirSync(subpathDestDir, { recursive: true });
-              renderTemplate(subpathTemplateFile, path.join(subpathDestDir, "variables.yaml"));
-            }
+          const removeBlankLines = (content) => {
+            const lines = content.split(/\r?\n/).filter((line) => line.trim() !== "");
+            return lines.length ? `${lines.join("\n")}\n` : "";
+          };
+
+          // 4) Copy templates/<path>/<tool> into the resource, rendering *.njk (-> *.yaml) with the values.
+          function renderResources() {
+            const values = readState("values");
+            const resources = readState("resources");
+            const summary = [];
+
+            resources.forEach((r, i) => {
+              const tool = r.existing_tool || r.default_tool;
+              if (!/^[A-Za-z0-9_-]+$/.test(tool)) fail(`Invalid tool "${tool}" for ${r.resource_path}`);
+              assertCurrentRepo(r.template_url, `templates[${i}].template_url`);
+              const templateDir = repoPath(path.posix.join(r.template_path, tool), `templates[${i}].template_path`);
+              if (!fs.existsSync(templateDir)) fail(`Template ${r.template_path} has no "${tool}" implementation`);
+
+              const resourceDir = repoPath(r.resource_path, `templates[${i}].resource_path`);
+              const context = { ...values };
+              if (r.old_values) context.old_values = r.old_values;
+
+              for (const rel of listFiles(templateDir)) {
+                const src = path.join(templateDir, rel);
+                if (rel.endsWith(".njk")) {
+                  const dest = path.join(resourceDir, rel.replace(/\.njk$/, ".yaml"));
+                  fs.mkdirSync(path.dirname(dest), { recursive: true });
+                  fs.writeFileSync(dest, removeBlankLines(env.renderString(fs.readFileSync(src, "utf8"), context)));
+                  console.log(`Rendered ${path.relative(REPO_ROOT, dest)}`);
+                } else {
+                  const dest = path.join(resourceDir, rel);
+                  fs.mkdirSync(path.dirname(dest), { recursive: true });
+                  fs.copyFileSync(src, dest);
+                  console.log(`Copied   ${path.relative(REPO_ROOT, dest)}`);
+                }
+              }
+
+              const metadataFile = path.join(resourceDir, "metadata.yaml");
+              if (!fs.existsSync(metadataFile)) {
+                fs.writeFileSync(metadataFile, yaml.dump({ tool }));
+                console.log(`Created  ${path.relative(REPO_ROOT, metadataFile)} (tool: ${tool})`);
+              }
+
+              summary.push(`- \`${path.relative(REPO_ROOT, resourceDir)}\` — ${r.exists ? "updated" : "created"}, ` +
+                `template \`${r.template_path}/${tool}\``);
+            });
+
+            fs.writeFileSync(path.join(STATE_DIR, "summary.md"), `${summary.join("\n")}\n`);
           }
-          '
 
-      # 5) Clean up Node modules and temporary files
-      - name: Clean workspace dependencies
-        run: |
-          rm -rf node_modules
-          rm -f package.json package-lock.json
+          const commands = { values: buildValues, templates: resolveTemplates, load: loadResources, render: renderResources };
+          const command = commands[process.argv[2]];
+          if (!command) fail(`Usage: node template.js <${Object.keys(commands).join("|")}>`);
+          command();
+          EOF
 
-      # 6) Create and Open a Pull Request on GitHub
-      - name: Create Pull Request
-        id: create_pr
-        uses: peter-evans/create-pull-request@v6
+      - name: 1) Build values from interfaces and parameters
+        run: node "$IDP_SCRIPT" values
+
+      - name: 2) Resolve service templates
+        run: node "$IDP_SCRIPT" templates
+
+      - name: 3) Load existing resources
+        run: node "$IDP_SCRIPT" load
+
+      - name: 4) Render resources
+        run: node "$IDP_SCRIPT" render
+
+      - name: 5) Open pull request
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "feat: render templates for ${{ github.event.inputs.resource_id }}"
-          branch: "feature/${{ github.event.inputs.operation_id }}_${{ github.event.inputs.resource_id }}"
+          base: main
+          branch: idp/${{ inputs.service_id }}-${{ github.run_id }}
           delete-branch: true
-          title: "Feature: ${{ github.event.inputs.operation_id }} - ${{ github.event.inputs.resource_id }}"
-          body: |
-            ### 🚀 Template Rendered Automatically
-            Questa Pull Request è stata aperta automaticamente dal workflow `templater`.
-            
-            - **Operation ID**: `${{ github.event.inputs.operation_id }}`
-            - **Resource ID**: `${{ github.event.inputs.resource_id }}`
-          base: ${{ github.ref_name }}
+          commit-message: 'feat(${{ inputs.service_id }}): render resources'
+          title: 'IDP: ${{ inputs.service_id }}'
+          body-path: ${{ runner.temp }}/idp/state/summary.md
