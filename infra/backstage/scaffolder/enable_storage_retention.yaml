@@ -4,7 +4,7 @@ kind: Template
 metadata:
   name: enable-storage-retention
   title: Enable storage retention
-  description: Enables Object Lock retention on an existing S3 bucket
+  description: Protects the data of an existing remote storage from changes and deletion for a period of time
   idpServiceId: enable_storage_retention
 
 spec:
@@ -13,16 +13,16 @@ spec:
 
   parameters:
     - title: Retention configuration
-      description: Select the bucket and the retention period
+      description: Select the storage and the retention period
       required:
         - resource
         - retention_days
       properties:
 
         resource:
-          title: Bucket
+          title: Storage
           type: string
-          description: Existing S3 bucket to enable retention on
+          description: Existing remote storage to enable retention on
           ui:field: EntityPicker
           ui:options:
             allowArbitraryValues: false
@@ -33,7 +33,7 @@ spec:
         retention_days:
           title: Retention days
           type: integer
-          description: Number of days objects are locked
+          description: Number of days during which stored data cannot be modified or deleted
           default: 365
           minimum: 1
 

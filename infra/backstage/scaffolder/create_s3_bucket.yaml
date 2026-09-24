@@ -2,9 +2,9 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 
 metadata:
-  name: create-s3-bucket
-  title: Create S3 bucket
-  description: Creates an S3 bucket (remote storage) resource
+  name: create-remote-storage
+  title: Create remote storage
+  description: Creates a remote storage to save and share files
   idpServiceId: create_s3_bucket
 
 spec:
@@ -12,16 +12,16 @@ spec:
   type: infrastructure
 
   parameters:
-    - title: Bucket configuration
-      description: S3 bucket configuration
+    - title: Storage configuration
+      description: Remote storage configuration
       required:
         - name
       properties:
 
         name:
-          title: Bucket name
+          title: Storage name
           type: string
-          description: Name of the S3 bucket to create
+          description: Unique name of the remote storage to create
           pattern: '^(?!xn--|sthree-|amzn-s3-demo-)(?!.*(-s3alias|--ol-s3|--x-s3|--table-s3)$)[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$'
           ui:help: '3-63 characters: lowercase letters, numbers and hyphens; must start and end with a letter or number.'
           ui:autofocus: true
