@@ -1,0 +1,90 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+
+metadata:
+  name: configure-storage-lifecycle
+  title: Configure storage lifecycle
+  description: Moves the data of an existing remote storage to cheaper storage and deletes it after a period of time
+  idpServiceId: enable_lifecycle_rule
+
+spec:
+  owner: team-platform
+  type: infrastructure
+
+  parameters:
+    - title: Lifecycle configuration
+      description: Select the storage and what happens to its data over time
+      required:
+        - resource
+        - transition_days
+        - transition_storage
+        - expiration_days
+      properties:
+
+        resource:
+          title: Storage
+          type: string
+          description: Existing remote storage to configure
+          ui:field: EntityPicker
+          ui:options:
+            allowArbitraryValues: false
+            catalogFilter:
+              - kind: Resource
+                spec.type: storage
+
+        transition_days:
+          title: Move data after (days)
+          type: integer
+          minimum: 0
+          default: 30
+          description: Days after upload before data moves to cheaper storage (0 = never). Infrequent access requires at least 30 days.
+
+        transition_storage:
+          title: Move data to
+          type: string
+          default: infrequent_access
+          oneOf:
+            - const: infrequent_access
+              title: Infrequent access (cheaper, same speed)
+            - const: auto_tiering
+              title: Automatic tiering (priced by access pattern)
+            - const: archive
+              title: Archive (cheap, restore in minutes to hours)
+            - const: deep_archive
+              title: Deep archive (cheapest, restore in hours)
+
+        expiration_days:
+          title: Delete data after (days)
+          type: integer
+          minimum: 0
+          default: 0
+          description: Days after upload before data is deleted (0 = never). Must be greater than the days before moving data.
+
+  steps:
+
+    - id: run-template-workflow
+      name: Run template workflow
+      action: github:actions:dispatch
+
+      input:
+        repoUrl: github.com?owner=tommyliverani&repo=highway-to-cloud
+        workflowId: template.yaml
+        branchOrTagName: develop
+
+        workflowInputs:
+          service_id: enable_lifecycle_rule
+          parameters: >-
+            {"name": ${{ parameters.resource | parseEntityRef | pick('name') | dump }},
+            "transition_days": ${{ parameters.transition_days }},
+            "transition_storage": ${{ parameters.transition_storage | dump }},
+            "expiration_days": ${{ parameters.expiration_days }}}
+
+    - id: log-workflow-link
+      name: Print GitHub Actions link
+
+      action: debug:log
+
+      input:
+        message: >-
+          GitHub Actions workflow triggered:
+          https://github.com/tommyliverani/highway-to-cloud/actions/workflows/template.yaml

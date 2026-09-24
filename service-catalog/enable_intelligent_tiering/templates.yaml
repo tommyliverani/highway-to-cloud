@@ -1,0 +1,3 @@
+- template: github.com/tommyliverani/highway-to-cloud//templates/s3/enable_intelligent_tiering
+  resource: github.com/tommyliverani/highway-to-cloud//resources/{{ parameters.name }}
+  default_tool: terraform

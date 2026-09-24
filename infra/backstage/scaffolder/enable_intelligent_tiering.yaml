@@ -1,0 +1,63 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+
+metadata:
+  name: enable-storage-auto-tiering
+  title: Enable storage auto tiering
+  description: Automatically moves the data of an existing remote storage that is not accessed for a long time to cheaper archive storage
+  idpServiceId: enable_intelligent_tiering
+
+spec:
+  owner: team-platform
+  type: infrastructure
+
+  parameters:
+    - title: Auto tiering configuration
+      description: Select the storage and how far data can be archived
+      required:
+        - resource
+      properties:
+
+        resource:
+          title: Storage
+          type: string
+          description: Existing remote storage to enable auto tiering on
+          ui:field: EntityPicker
+          ui:options:
+            allowArbitraryValues: false
+            catalogFilter:
+              - kind: Resource
+                spec.type: storage
+
+        deep_archive:
+          title: Deep archive
+          type: boolean
+          default: false
+          description: Also move data not accessed for a very long time to the cheapest archive, which is the slowest to restore
+
+  steps:
+
+    - id: run-template-workflow
+      name: Run template workflow
+      action: github:actions:dispatch
+
+      input:
+        repoUrl: github.com?owner=tommyliverani&repo=highway-to-cloud
+        workflowId: template.yaml
+        branchOrTagName: develop
+
+        workflowInputs:
+          service_id: enable_intelligent_tiering
+          parameters: >-
+            {"name": ${{ parameters.resource | parseEntityRef | pick('name') | dump }},
+            "deep_archive": ${{ parameters.deep_archive | dump }}}
+
+    - id: log-workflow-link
+      name: Print GitHub Actions link
+
+      action: debug:log
+
+      input:
+        message: >-
+          GitHub Actions workflow triggered:
+          https://github.com/tommyliverani/highway-to-cloud/actions/workflows/template.yaml

@@ -1,0 +1,16 @@
+{% set overridden = ["lifecycle_rule_enabled", "lifecycle_transition_days", "lifecycle_transition_storage_class", "lifecycle_expiration_days", "lifecycle_noncurrent_version_expiration_days", "lifecycle_abort_multipart_days"] %}
+{# The Backstage form uses implementation-neutral names: they are mapped to S3 storage classes here #}
+{% set storage_classes = {"infrequent_access": "STANDARD_IA", "auto_tiering": "INTELLIGENT_TIERING", "archive": "GLACIER", "deep_archive": "DEEP_ARCHIVE"} %}
+lifecycle_rule_enabled: true
+lifecycle_transition_days: {{ (parameters.transition_days or 0) | int }}
+lifecycle_transition_storage_class: {{ (storage_classes[parameters.transition_storage] or "STANDARD_IA") | dump }}
+lifecycle_expiration_days: {{ (parameters.expiration_days or 0) | int }}
+lifecycle_noncurrent_version_expiration_days: {{ platform.lifecycle_noncurrent_version_expiration_days | int }}
+lifecycle_abort_multipart_days: {{ platform.lifecycle_abort_multipart_days | int }}
+
+{# old values #}
+{% for key, value in old_values %}
+{% if not (key in overridden) %}
+{{ key }}: {{ value | dump }}
+{% endif %}
+{% endfor %}
