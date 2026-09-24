@@ -1,8 +1,8 @@
 name: deploy-crossplane
 
 # Deploy module for tool "crossplane". The actual deploy is GitOps: Argo CD syncs the manifests once the
-# resource is promoted to main. This module only checks that the manifests are valid YAML, so a broken
-# resource blocks the promotion.
+# resource is merged into main. This module only checks that the manifests are valid YAML, so a broken
+# resource blocks the merge into main.
 on:
   workflow_call:
     inputs:
@@ -35,4 +35,4 @@ jobs:
             yq '.' "$f" > /dev/null || { echo "::error::$f is not valid YAML"; exit 1; }
             echo "OK $f"
           done
-          echo "Argo CD will sync $RESOURCE after promotion to main"
+          echo "Argo CD will sync $RESOURCE after the merge into main"

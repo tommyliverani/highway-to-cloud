@@ -1,8 +1,8 @@
 name: deploy
 
 # Generic deploy pipeline: finds the resources that differ between develop and main (not deployed yet),
-# deploys each one with the module of its tool (deploy-<tool>.yaml), then promotes the deployed develop
-# commit to main. Runs when a templater PR is merged into develop.
+# deploys each one with the module of its tool (deploy-<tool>.yaml), then merges the deployed develop
+# commit into main. Runs when a templater PR is merged into develop.
 on:
   push:
     branches: [develop]
@@ -81,9 +81,9 @@ jobs:
       ref: ${{ needs.plan.outputs.sha }}
     secrets: inherit
 
-  # Runs only if no module failed (skipped modules are fine). Only the deployed commit is promoted,
+  # Runs only if no module failed (skipped modules are fine). Only the deployed commit is merged,
   # even if develop moved on meanwhile.
-  promote:
+  merge-main:
     needs: [plan, terraform, crossplane]
     if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
@@ -100,5 +100,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B main origin/main
-          git merge --no-ff "$DEPLOYED_SHA" -m "chore: promote deployed resources from develop"
+          git merge --no-ff "$DEPLOYED_SHA" -m "chore: merge deployed resources from develop"
           git push origin main
