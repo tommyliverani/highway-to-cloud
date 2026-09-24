@@ -1,0 +1,104 @@
+name: deploy
+
+# Generic deploy pipeline: finds the resources that differ between develop and main (not deployed yet),
+# deploys each one with the module of its tool (deploy-<tool>.yaml), then promotes the deployed develop
+# commit to main. Runs when a templater PR is merged into develop.
+on:
+  push:
+    branches: [develop]
+    paths: ['resources/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.find.outputs.sha }}
+      terraform: ${{ steps.find.outputs.terraform }}
+      crossplane: ${{ steps.find.outputs.crossplane }}
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Group resources to deploy by tool
+        id: find
+        run: |
+          supported="terraform crossplane"
+          plan='{}'
+          for dir in $(git diff --name-only origin/main HEAD -- resources/ | cut -d/ -f1-2 | sort -u); do
+            if [ ! -f "$dir/metadata.yaml" ]; then
+              echo "Skip $dir: removed or without metadata.yaml (no destroy in this demo)"
+              continue
+            fi
+            tool=$(yq '.tool' "$dir/metadata.yaml")
+            if ! echo " $supported " | grep -q " $tool "; then
+              echo "::error::$dir uses tool '$tool', which has no deploy module (deploy-$tool.yaml)"
+              exit 1
+            fi
+            plan=$(jq -c --arg tool "$tool" --arg dir "$dir" '.[$tool] += [$dir]' <<< "$plan")
+          done
+          echo "Deploy plan:"; jq . <<< "$plan"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          for tool in $supported; do
+            echo "$tool=$(jq -c --arg tool "$tool" '.[$tool] // []' <<< "$plan")" >> "$GITHUB_OUTPUT"
+          done
+
+  # One job per technology: GitHub Actions does not allow expressions in `uses:`,
+  # so adding a technology means adding its module and a job here.
+  terraform:
+    needs: plan
+    if: needs.plan.outputs.terraform != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        resource: ${{ fromJSON(needs.plan.outputs.terraform) }}
+    uses: ./.github/workflows/deploy-terraform.yaml
+    with:
+      resource: ${{ matrix.resource }}
+      ref: ${{ needs.plan.outputs.sha }}
+    secrets: inherit
+
+  crossplane:
+    needs: plan
+    if: needs.plan.outputs.crossplane != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        resource: ${{ fromJSON(needs.plan.outputs.crossplane) }}
+    uses: ./.github/workflows/deploy-crossplane.yaml
+    with:
+      resource: ${{ matrix.resource }}
+      ref: ${{ needs.plan.outputs.sha }}
+    secrets: inherit
+
+  # Runs only if no module failed (skipped modules are fine). Only the deployed commit is promoted,
+  # even if develop moved on meanwhile.
+  promote:
+    needs: [plan, terraform, crossplane]
+    if: ${{ !failure() && !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge develop into main
+        env:
+          DEPLOYED_SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B main origin/main
+          git merge --no-ff "$DEPLOYED_SHA" -m "chore: promote deployed resources from develop"
+          git push origin main

@@ -21,13 +21,17 @@ jobs:
     runs-on: ubuntu-latest
 
     # Inputs reach the script only through env vars, never interpolated into code.
+    # develop is the working branch (rendered, not yet deployed); main holds deployed resources only.
     env:
       SERVICE_ID: ${{ inputs.service_id }}
       PARAMETERS: ${{ inputs.parameters }}
+      WORK_BRANCH: develop
 
     steps:
-      - name: Checkout repository
+      - name: Checkout working branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.WORK_BRANCH }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -300,7 +304,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: main
+          base: ${{ env.WORK_BRANCH }}
           branch: idp/${{ inputs.service_id }}-${{ github.run_id }}
           delete-branch: true
           commit-message: 'feat(${{ inputs.service_id }}): render resources'

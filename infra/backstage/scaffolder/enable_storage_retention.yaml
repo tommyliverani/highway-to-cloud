@@ -46,7 +46,7 @@ spec:
       input:
         repoUrl: github.com?owner=tommyliverani&repo=highway-to-cloud
         workflowId: template.yaml
-        branchOrTagName: main
+        branchOrTagName: develop
 
         workflowInputs:
 
