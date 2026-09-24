@@ -1,0 +1,15 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: "highway-demo-bucket-1"
+  title: "highway-demo-bucket-1"
+  description: "highway-demo-bucket-1"
+  idp_tool: terraform
+  tags:
+    - aws
+    - s3
+    - storage
+spec:
+  type: storage
+  owner: guest
+  lifecycle: production
