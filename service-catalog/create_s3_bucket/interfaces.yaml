@@ -1,0 +1,6 @@
+- alias: security
+  repo_url: git@github.com:tommyliverani/highway-to-cloud.git
+  path: /interfaces/security/s3.yaml
+- alias: platform
+  repo_url: git@github.com:tommyliverani/highway-to-cloud.git
+  path: /interfaces/platform/s3.yaml

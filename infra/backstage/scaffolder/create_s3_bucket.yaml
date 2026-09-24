@@ -1,0 +1,76 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+
+metadata:
+  name: create-s3-bucket
+  title: Create S3 bucket
+  description: Creates an S3 bucket (remote storage) resource
+  idpServiceId: create_s3_bucket
+
+spec:
+  owner: team-platform
+  type: infrastructure
+
+  parameters:
+    - title: Bucket configuration
+      description: S3 bucket configuration
+      required:
+        - name
+      properties:
+
+        name:
+          title: Bucket name
+          type: string
+          description: Name of the S3 bucket to create
+          ui:autofocus: true
+
+        title:
+          title: Title
+          type: string
+          description: Display name of the resource in the Backstage catalog
+
+        description:
+          title: Description
+          type: string
+          description: Short description of the resource
+
+  steps:
+
+    - id: run-template-workflow
+      name: Run template workflow
+      action: github:actions:dispatch
+
+      input:
+        repoUrl: github.com?owner=tommyliverani&repo=highway-to-cloud
+        workflowId: template.yaml
+        branchOrTagName: main
+
+        workflowInputs:
+
+          operation_id: create_s3_bucket
+          resource_id: ${{ parameters.name }}
+
+          backstage_params: >-
+            {
+              "name": "${{ parameters.name }}",
+              "title": "${{ parameters.title or parameters.name }}",
+              "description": "${{ parameters.description }}"
+            }
+
+    - id: log-workflow-link
+      name: Print GitHub Actions link
+
+      action: debug:log
+
+      input:
+        message: >-
+          GitHub Actions workflow triggered:
+          https://github.com/tommyliverani/highway-to-cloud/actions/workflows/template.yaml
+
+
+
+
+# 1) fetch delle variabili
+# 2) template del metadata e del catalog info
+# 3) template degli skeleton definiti nel metadata
+# 4) deploy degli skeleton valorizzati

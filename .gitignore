@@ -1,2 +1,4 @@
-backstage/app-config.local.yaml
+infra/backstage/app-config.local.yaml
+infra/k8s/.env
 scripts.md
+CLAUDE.md

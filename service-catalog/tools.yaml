@@ -1,0 +1,7 @@
+terraform:
+  build: pipeline_build_terraform
+  deploy: pipeline_deploy_terraform
+
+crossplane:
+  build: pipeline_build_crossplane
+  deploy: pipeline_deploy_crossplane

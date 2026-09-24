@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: {{ parameters.name | kebabCase }}
+  title: {{ parameters.title }}
+  {% if parameters.description %}
+  description: {{ parameters.description }}
+  {% endif %}
+  idp_tool: terraform
+
+  tags:
+    - aws
+    - s3
+    - storage
+    
+spec:
+  type: storage
+  owner: guest
+  lifecycle: production

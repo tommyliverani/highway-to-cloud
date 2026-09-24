@@ -1,0 +1,6 @@
+- template_url: git@github.com:tommyliverani/highway-to-cloud.git
+  template_path: /templates/s3/create_bucket
+  resource_url: git@github.com:tommyliverani/highway-to-cloud.git
+  resource_path: /resources/{{ parameters.name }}
+  default_tool: terraform
+
