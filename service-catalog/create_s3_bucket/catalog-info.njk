@@ -1,3 +1,4 @@
+{# Entity of the instance in the resource catalog: the user-facing name; highwaytocloud.io/* annotations are set by the process #}
 apiVersion: backstage.io/v1alpha1
 kind: Resource
 metadata:
@@ -6,13 +7,10 @@ metadata:
   {% if parameters.description %}
   description: {{ parameters.description | dump }}
   {% endif %}
-  idp_tool: crossplane
-
   tags:
     - aws
     - s3
     - storage
-
 spec:
   type: storage
   owner: guest

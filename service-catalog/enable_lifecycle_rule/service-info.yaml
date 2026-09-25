@@ -1,0 +1,8 @@
+create: false
+resourceId: s3-bucket-{{ parameters.name }}
+terraform:
+  - template: github.com/tommyliverani/highway-to-cloud//templates/s3/enable_lifecycle_rule
+    resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}
+crossplane:
+  - template: github.com/tommyliverani/highway-to-cloud//templates/s3/enable_lifecycle_rule
+    resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}

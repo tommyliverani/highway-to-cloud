@@ -1,0 +1,5 @@
+# How the platform delivers resources with Argo CD (used by the k8s Application component)
+repo_url: https://github.com/tommyliverani/highway-to-cloud.git
+target_revision: main
+project: default
+destination_namespace: platform-resources
