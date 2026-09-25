@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: storage5-highwaytocloud
+  title: storage5-highwaytocloud
+  description: storage5-highwaytocloud
+  tags:
+    - aws
+    - s3
+    - storage
+  annotations:
+    highwaytocloud.io/tool: terraform
+    highwaytocloud.io/service: create_s3_bucket
+spec:
+  type: storage
+  owner: guest
+  lifecycle: production
