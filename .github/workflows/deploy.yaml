@@ -1,8 +1,9 @@
 name: deploy
 
-# Generic deploy pipeline: finds the resources that differ between develop and main (not deployed yet),
-# deploys each one with the module of its tool (deploy-<tool>.yaml), then merges the deployed develop
-# commit into main. Runs when a templater PR is merged into develop.
+# Generic deploy pipeline: finds the components that differ between develop and main (not deployed yet),
+# deploys each one with the module of its deploy pipeline (deploy-<deploy>.yaml), merges the deployed
+# develop commit into main, then lists the Argo CD Applications to sync by hand. Runs when a templater PR
+# is merged into develop.
 on:
   push:
     branches: [develop]
@@ -112,3 +113,33 @@ jobs:
           git checkout -B main origin/main
           git merge --no-ff "$DEPLOYED_SHA" -m "chore: merge deployed resources from develop"
           git push origin main
+
+  # Argo CD Applications track main, so they can only be synced after merge-main. For the demo the sync
+  # is manual: this job lists the Applications declared by the deployed argo components (argo_application
+  # in their metadata.yaml), those delivering other Applications (resources/argo-apps) first.
+  argo-sync:
+    needs: [plan, merge-main]
+    if: needs.plan.outputs.argo != '[]' && needs.merge-main.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+
+      - name: List Argo CD Applications to sync
+        env:
+          COMPONENTS: ${{ needs.plan.outputs.argo }}
+        run: |
+          apps=$(jq -r '.[]' <<< "$COMPONENTS" | while read -r dir; do
+            order=1; [[ "$dir" == resources/argo-apps/* ]] && order=0
+            echo "$order $(yq '.argo_application' "$dir/metadata.yaml")"
+          done | sort -k1,1n -k2 | awk '!seen[$2]++ { print $2 }')
+          echo "Applications to sync, in order:"; echo "$apps"
+          {
+            echo "## Argo CD: manual sync required"
+            echo "The resources are merged into \`main\`. Sync these Applications in this order (Argo CD UI → Sync, or CLI):"
+            echo '```bash'
+            for app in $apps; do echo "argocd app sync $app"; done
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

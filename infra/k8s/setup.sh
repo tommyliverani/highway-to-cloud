@@ -121,6 +121,24 @@ stringData:
 EOF
 
 # ============================================================
+# AWS credentials for Crossplane
+# ============================================================
+
+# Secret read by the ClusterProviderConfig "default" (building_blocks/crossplane/provider_config), in the
+# profile file format expected by the AWS provider. Optional: without it Crossplane cannot reach AWS.
+if [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
+    echo "==> Creating Crossplane AWS credentials secret"
+    kubectl create secret generic aws-credentials \
+        -n "${CROSSPLANE_NAMESPACE}" \
+        --from-file=credentials=<(printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' \
+            "${AWS_ACCESS_KEY_ID}" "${AWS_SECRET_ACCESS_KEY}") \
+        --dry-run=client -o yaml |
+        kubectl apply -f -
+else
+    echo "WARNING: AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY not set, Crossplane will not be able to reach AWS"
+fi
+
+# ============================================================
 # Create Argo CD Application (resources/argo-app)
 # ============================================================
 
