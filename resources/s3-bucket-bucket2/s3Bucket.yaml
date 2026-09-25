@@ -1,0 +1,14 @@
+apiVersion: storage.highwaytocloud.io/v1alpha1
+kind: S3Bucket
+metadata:
+  name: "bucket2"
+spec:
+  crossplane:
+    compositionRef:
+      name: s3buckets-aws
+  bucketName: "bucket2-311618538285-us-east-1-an"
+  bucketNamespace: "account-regional"
+  region: "us-east-1"
+  forceDestroy: false
+  kmsKey: "arn:aws:kms:eu-south-1:311618538285:key/9b8c0a7e-5c3b-4f1d-9c8e-2f0a1b2c3d4e"
+  kmsSseAlg: "aws:kms"
