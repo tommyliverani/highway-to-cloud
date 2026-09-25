@@ -139,8 +139,11 @@ spec:
     repoURL: ${REPO_URL}
     targetRevision: ${REPO_REVISION}
     path: ${ARGO_APP_PATH}
+    # Every manifest under resources/argo-apps, except the files the platform process writes in each
+    # resource folder (they are not Kubernetes objects to apply).
     directory:
       recurse: true
+      exclude: '{**/metadata.yaml,**/catalog-info.yaml,**/variables.json}'
   destination:
     server: https://kubernetes.default.svc
     namespace: ${ARGOCD_NAMESPACE}

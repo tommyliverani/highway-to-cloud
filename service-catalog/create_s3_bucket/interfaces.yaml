@@ -4,3 +4,5 @@
   alias: platform
 - source: github.com/tommyliverani/highway-to-cloud//interfaces/platform/terraform.yaml
   alias: tf_backend
+- source: github.com/tommyliverani/highway-to-cloud//interfaces/platform/argo.yaml
+  alias: argo

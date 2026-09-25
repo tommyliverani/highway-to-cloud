@@ -23,6 +23,7 @@ jobs:
       sha: ${{ steps.find.outputs.sha }}
       terraform: ${{ steps.find.outputs.terraform }}
       crossplane: ${{ steps.find.outputs.crossplane }}
+      k8s: ${{ steps.find.outputs.k8s }}
     steps:
       - name: Checkout develop
         uses: actions/checkout@v4
@@ -30,16 +31,26 @@ jobs:
           ref: develop
           fetch-depth: 0
 
-      - name: Group resources to deploy by tool
+      # A component is the nearest folder under resources/ with a metadata.yaml (its tool), at any depth:
+      # e.g. resources/s3-bucket-x/ or resources/argo-apps/s3-bucket-x/.
+      - name: Group components to deploy by tool
         id: find
         run: |
-          supported="terraform crossplane"
+          supported="terraform crossplane k8s"
           plan='{}'
-          for dir in $(git diff --name-only origin/main HEAD -- resources/ | cut -d/ -f1-2 | sort -u); do
-            if [ ! -f "$dir/metadata.yaml" ]; then
-              echo "Skip $dir: removed or without metadata.yaml (no destroy in this demo)"
-              continue
+          components=""
+          for file in $(git diff --name-only origin/main HEAD -- resources/); do
+            dir=$(dirname "$file")
+            while [ "$dir" != "resources" ] && [ "$dir" != "." ] && [ ! -f "$dir/metadata.yaml" ]; do
+              dir=$(dirname "$dir")
+            done
+            if [ -f "$dir/metadata.yaml" ]; then
+              components="$components $dir"
+            else
+              echo "Skip $file: removed or not part of a component (no destroy in this demo)"
             fi
+          done
+          for dir in $(tr ' ' '\n' <<< "$components" | sort -u); do
             tool=$(yq '.tool' "$dir/metadata.yaml")
             if ! echo " $supported " | grep -q " $tool "; then
               echo "::error::$dir uses tool '$tool', which has no deploy module (deploy-$tool.yaml)"
@@ -81,10 +92,23 @@ jobs:
       ref: ${{ needs.plan.outputs.sha }}
     secrets: inherit
 
+  k8s:
+    needs: plan
+    if: needs.plan.outputs.k8s != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        resource: ${{ fromJSON(needs.plan.outputs.k8s) }}
+    uses: ./.github/workflows/deploy-k8s.yaml
+    with:
+      resource: ${{ matrix.resource }}
+      ref: ${{ needs.plan.outputs.sha }}
+    secrets: inherit
+
   # Runs only if no module failed (skipped modules are fine). Only the deployed commit is merged,
   # even if develop moved on meanwhile.
   merge-main:
-    needs: [plan, terraform, crossplane]
+    needs: [plan, terraform, crossplane, k8s]
     if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     steps:

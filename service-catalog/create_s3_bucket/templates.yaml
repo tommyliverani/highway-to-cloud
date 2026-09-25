@@ -1,3 +1,0 @@
-- template: github.com/tommyliverani/highway-to-cloud//templates/s3/create_bucket
-  resource: github.com/tommyliverani/highway-to-cloud//resources/{{ parameters.name }}
-  default_tool: terraform

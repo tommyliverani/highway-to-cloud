@@ -1,0 +1,23 @@
+{# Delivery component of a Crossplane instance: the Argo CD Application that syncs its Helm chart. #}
+{# The chart is the instance's main component, by convention in resources/<resource_id>. #}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ resource_id | dump }}
+  namespace: argocd
+spec:
+  project: {{ argo.project | dump }}
+  source:
+    repoURL: {{ argo.repo_url | dump }}
+    targetRevision: {{ argo.target_revision | dump }}
+    path: {{ ("resources/" + resource_id) | dump }}
+    helm:
+      valueFiles:
+        - variables.json
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ argo.destination_namespace | dump }}
+  # No automated sync: deploying a Crossplane resource means syncing this Application (future deploy pipeline).
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

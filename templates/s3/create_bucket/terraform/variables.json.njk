@@ -14,5 +14,5 @@ kms_sse_alg: {{ security.kms_sse_alg }}
 backend:
   bucket: {{ tf_backend.state_bucket | dump }}
   region: {{ tf_backend.state_region | dump }}
-  key: {{ ("resources/" + parameters.name + "/terraform.tfstate") | dump }}
+  key: {{ ("resources/" + resource_id + "/terraform.tfstate") | dump }}
 

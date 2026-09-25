@@ -60,8 +60,13 @@ jobs:
 
           const REPO_ROOT = process.cwd();
           const STATE_DIR = process.env.STATE_DIR || path.join(os.tmpdir(), "idp-state");
-          const RESERVED_KEYS = ["parameters", "old_values"];
+          const RESERVED_KEYS = ["parameters", "old_values", "resource_id"];
           const DATA_EXTENSIONS = [".json", ".yaml", ".yml"];
+          const RESOURCE_CATALOG_DIR = "resource-catalog";
+          const TOOL_ANNOTATION = "highwaytocloud.io/tool";
+          const SERVICE_ANNOTATION = "highwaytocloud.io/service";
+          const TOOL_PATTERN = /^[A-Za-z0-9_-]+$/;
+          const RESOURCE_ID_PATTERN = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 
           const env = new nunjucks.Environment(null, {
             autoescape: false,
@@ -154,48 +159,75 @@ jobs:
             writeState("values", values);
           }
 
-          // 2) Render templates.yaml with the values. Each string is rendered after YAML parsing,
-          //    so input parameters cannot inject extra YAML keys.
-          function resolveTemplates() {
+          // 2) Resolve the instance from service-info.yaml: its resourceId, its tool (recorded in the resource
+          //    catalog, or default_tool for a new instance) and the components of that tool's recipe.
+          //    Strings are rendered after YAML parsing, so input parameters cannot inject extra YAML keys.
+          function resolveInstance() {
             const values = readState("values");
-            const raw = loadYaml(path.join(serviceDir(), "templates.yaml")) || [];
-            if (!Array.isArray(raw)) fail("templates.yaml must be a list");
+            const info = loadYaml(path.join(serviceDir(), "service-info.yaml")) || {};
+            if (typeof info !== "object" || Array.isArray(info)) fail("service-info.yaml must be a mapping");
+            if (typeof info.create !== "boolean") fail("service-info.yaml: create must be true or false");
 
-            const render = (v) => (typeof v === "string" ? env.renderString(v, values).trim() : v);
-            const templates = raw.map((entry, i) => {
-              const t = Object.fromEntries(Object.entries(entry || {}).map(([k, v]) => [k, render(v)]));
-              for (const key of ["template", "resource", "default_tool"]) {
-                if (!t[key]) fail(`templates.yaml entry ${i} is missing ${key}`);
+            const renderIn = (context) => (v) => (typeof v === "string" ? env.renderString(v, context).trim() : v);
+            const resourceId = renderIn(values)(info.resourceId || "");
+            if (!RESOURCE_ID_PATTERN.test(resourceId)) {
+              fail(`Invalid resourceId "${resourceId}": lowercase letters, numbers and hyphens, max 63 characters`);
+            }
+
+            const catalogFile = path.join(REPO_ROOT, RESOURCE_CATALOG_DIR, `${resourceId}.yaml`);
+            const existing = fs.existsSync(catalogFile);
+            let tool;
+            if (existing) {
+              if (info.create) fail(`Resource ${resourceId} already exists in ${RESOURCE_CATALOG_DIR}/`);
+              const annotations = ((loadYaml(catalogFile) || {}).metadata || {}).annotations || {};
+              tool = annotations[TOOL_ANNOTATION];
+              if (!tool) fail(`${RESOURCE_CATALOG_DIR}/${resourceId}.yaml has no ${TOOL_ANNOTATION} annotation`);
+            } else {
+              if (!info.create) fail(`Resource ${resourceId} not found in ${RESOURCE_CATALOG_DIR}/`);
+              tool = info.default_tool;
+              if (!tool) fail("service-info.yaml: default_tool is required when create is true");
+            }
+            if (!TOOL_PATTERN.test(tool)) fail(`Invalid tool "${tool}"`);
+            const recipe = info[tool];
+            if (!Array.isArray(recipe) || !recipe.length) fail(`Service has no "${tool}" implementation`);
+
+            // A component uses the instance tool unless it declares its own (e.g. tool: k8s).
+            const context = { ...values, resource_id: resourceId };
+            const components = recipe.map((entry, i) => {
+              const c = Object.fromEntries(Object.entries(entry || {}).map(([k, v]) => [k, renderIn(context)(v)]));
+              for (const key of ["template", "resource"]) {
+                if (!c[key]) fail(`service-info.yaml ${tool}[${i}] is missing ${key}`);
               }
-              console.log(`Template ${t.template} -> ${t.resource} (default tool: ${t.default_tool})`);
-              return t;
+              c.tool = c.tool || tool;
+              if (!TOOL_PATTERN.test(c.tool)) fail(`Invalid tool "${c.tool}" in ${tool}[${i}]`);
+              console.log(`Component ${c.template} -> ${c.resource} (tool: ${c.tool})`);
+              return c;
             });
 
-            writeState("templates", templates);
+            console.log(`Resource ${resourceId}: ${existing ? "existing" : "new"}, tool ${tool}`);
+            writeState("values", context);
+            writeState("instance", { resource_id: resourceId, tool, create: info.create, components });
           }
 
-          // 3) For each template, detect whether the resource already exists and load its previous state.
-          function loadResources() {
-            const templates = readState("templates");
-            const resources = templates.map((t, i) => {
-              const dir = resolveSource(t.resource, `templates[${i}].resource`);
+          // 3) For each component, detect whether its folder already exists and load its previous values.
+          function loadComponents() {
+            const instance = readState("instance");
+            instance.components = instance.components.map((c, i) => {
+              const dir = resolveSource(c.resource, `components[${i}].resource`);
               const name = path.relative(REPO_ROOT, dir);
               const exists = fs.existsSync(dir);
               const variablesFiles = DATA_EXTENSIONS.map((ext) => path.join(dir, `variables${ext}`)).filter((f) => fs.existsSync(f));
-              const metadataFile = path.join(dir, "metadata.yaml");
               if (variablesFiles.length > 1) fail(`${name} has more than one variables file`);
 
-              const resource = { ...t, exists, existing_tool: null, old_values: null };
-              if (variablesFiles.length) resource.old_values = loadYaml(variablesFiles[0]) || {};
-              if (exists && fs.existsSync(metadataFile)) resource.existing_tool = (loadYaml(metadataFile) || {}).tool || null;
-
+              const component = { ...c, exists, old_values: null };
+              if (variablesFiles.length) component.old_values = loadYaml(variablesFiles[0]) || {};
               console.log(exists
-                ? `Resource ${name} exists (tool: ${resource.existing_tool || "none"}, old values: ${resource.old_values ? "yes" : "no"})`
-                : `Resource ${name} is new`);
-              return resource;
+                ? `Component ${name} exists (old values: ${component.old_values ? "yes" : "no"})`
+                : `Component ${name} is new`);
+              return component;
             });
 
-            writeState("resources", resources);
+            writeState("instance", instance);
           }
 
           function listFiles(dir, base = dir) {
@@ -237,18 +269,52 @@ jobs:
             console.log(`Rendered ${path.relative(REPO_ROOT, dest)}`);
           }
 
-          // 4) Copy <template>/<tool> into the resource. <name>.<ext>.njk renders to <name>.<ext>;
-          //    a bare <name>.njk renders to <name>.yaml. Other files are copied as-is.
-          function renderResources() {
-            const values = readState("values");
-            const resources = readState("resources");
-            const summary = [];
+          // A new instance is recorded in the resource catalog as a Backstage Resource entity, rendered from the
+          // service's optional catalog-info.njk. The resourceId is internal to the platform: it only names the
+          // file, while the entity keeps the user-facing name. Annotations are always set by the process.
+          function writeCatalogEntry(instance, values) {
+            let entity = {
+              apiVersion: "backstage.io/v1alpha1",
+              kind: "Resource",
+              metadata: {},
+              spec: { type: "platform-resource", owner: "guest", lifecycle: "production" },
+            };
+            const template = path.join(serviceDir(), "catalog-info.njk");
+            if (fs.existsSync(template)) {
+              try {
+                entity = yaml.load(env.renderString(fs.readFileSync(template, "utf8"), values)) || {};
+              } catch (e) {
+                fail(`catalog-info.njk does not render valid YAML: ${e.message}`);
+              }
+            }
+            const name = (entity.metadata || {}).name || values.parameters.name;
+            if (!RESOURCE_ID_PATTERN.test(String(name || ""))) fail(`Invalid entity name "${name}" for the resource catalog`);
+            entity.metadata = { ...(entity.metadata || {}), name };
+            entity.metadata.annotations = {
+              ...(entity.metadata.annotations || {}),
+              [TOOL_ANNOTATION]: instance.tool,
+              [SERVICE_ANNOTATION]: process.env.SERVICE_ID,
+            };
+            const dest = path.join(REPO_ROOT, RESOURCE_CATALOG_DIR, `${instance.resource_id}.yaml`);
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.writeFileSync(dest, yaml.dump(entity, { lineWidth: -1 }));
+            console.log(`Recorded ${path.relative(REPO_ROOT, dest)} (tool: ${instance.tool})`);
+          }
 
-            resources.forEach((r, i) => {
-              const resourceDir = resolveSource(r.resource, `templates[${i}].resource`);
-              const tool = r.existing_tool || r.default_tool;
-              if (!/^[A-Za-z0-9_-]+$/.test(tool)) fail(`Invalid tool "${tool}" for ${r.resource}`);
-              const templateDir = path.join(resolveSource(r.template, `templates[${i}].template`), tool);
+          // 4) Copy <template>/<tool> into each component folder. <name>.<ext>.njk renders to <name>.<ext>;
+          //    a bare <name>.njk renders to <name>.yaml. Other files are copied as-is.
+          function renderComponents() {
+            const values = readState("values");
+            const instance = readState("instance");
+            const summary = [
+              `Resource \`${instance.resource_id}\` — ${instance.create ? "created" : "updated"} with tool \`${instance.tool}\``,
+              "",
+            ];
+
+            instance.components.forEach((r, i) => {
+              const resourceDir = resolveSource(r.resource, `components[${i}].resource`);
+              const tool = r.tool;
+              const templateDir = path.join(resolveSource(r.template, `components[${i}].template`), tool);
               const templateName = path.relative(REPO_ROOT, templateDir);
               if (!fs.existsSync(templateDir)) fail(`Template ${r.template} has no "${tool}" implementation`);
 
@@ -279,10 +345,11 @@ jobs:
                 `template \`${templateName}\``);
             });
 
+            if (instance.create) writeCatalogEntry(instance, values);
             fs.writeFileSync(path.join(STATE_DIR, "summary.md"), `${summary.join("\n")}\n`);
           }
 
-          const commands = { values: buildValues, templates: resolveTemplates, load: loadResources, render: renderResources };
+          const commands = { values: buildValues, instance: resolveInstance, load: loadComponents, render: renderComponents };
           const command = commands[process.argv[2]];
           if (!command) fail(`Usage: node template.js <${Object.keys(commands).join("|")}>`);
           command();
@@ -291,13 +358,13 @@ jobs:
       - name: 1) Build values from interfaces and parameters
         run: node "$IDP_SCRIPT" values
 
-      - name: 2) Resolve service templates
-        run: node "$IDP_SCRIPT" templates
+      - name: 2) Resolve the resource and its components
+        run: node "$IDP_SCRIPT" instance
 
-      - name: 3) Load existing resources
+      - name: 3) Load existing components
         run: node "$IDP_SCRIPT" load
 
-      - name: 4) Render resources
+      - name: 4) Render components and resource catalog
         run: node "$IDP_SCRIPT" render
 
       - name: 5) Open pull request

@@ -1,0 +1,46 @@
+name: deploy-k8s
+
+# Deploy module for tool "k8s" (plain Kubernetes manifests, e.g. the Argo CD Application of a Crossplane
+# instance). The actual deploy is GitOps: the argo-app root Application picks the manifests up once they
+# are merged into main. This module only checks that every manifest is a valid Kubernetes object, so a
+# broken component blocks the merge into main.
+on:
+  workflow_call:
+    inputs:
+      resource:
+        description: 'Component folder, e.g. resources/argo-apps/s3-bucket-x'
+        required: true
+        type: string
+      ref:
+        description: 'Commit to deploy'
+        required: true
+        type: string
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    env:
+      RESOURCE: ${{ inputs.resource }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Validate manifests
+        run: |
+          [[ "$RESOURCE" =~ ^resources(/[A-Za-z0-9._-]+)+$ && "$RESOURCE" != *..* ]] || { echo "::error::Invalid resource '$RESOURCE'"; exit 1; }
+          found=0
+          while IFS= read -r -d '' f; do
+            found=1
+            yq -o=json '.' "$f" | jq -se 'all(.[]; .apiVersion and .kind)' > /dev/null || {
+              echo "::error::$f is not a valid Kubernetes manifest (apiVersion and kind are required)"
+              exit 1
+            }
+            echo "OK $f"
+          done < <(find "$RESOURCE" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
+                     ! -name metadata.yaml ! -name catalog-info.yaml ! -name variables.json -print0)
+          [ "$found" = 1 ] || { echo "::error::$RESOURCE contains no manifest"; exit 1; }
+          echo "Argo CD will sync $RESOURCE after the merge into main"
