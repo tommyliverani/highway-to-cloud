@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: storage1
+  title: storage1
+  description: storage1
+  tags:
+    - aws
+    - s3
+    - storage
+  annotations:
+    highwaytocloud.io/tool: crossplane
+    highwaytocloud.io/service: create_s3_bucket
+spec:
+  type: storage
+  owner: guest
+  lifecycle: production
