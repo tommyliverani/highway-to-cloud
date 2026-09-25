@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: crossplane-building-blocks
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/tommyliverani/highway-to-cloud.git
+    targetRevision: main
+    path: building_blocks/crossplane
+    directory:
+      recurse: true
+  # Building blocks are cluster-scoped (XRD, Composition, Provider, Function, ClusterProviderConfig).
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: crossplane-system
+  # No automated sync, like the argo-app root Application: sync manually from the Argo CD UI.
