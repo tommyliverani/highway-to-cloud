@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: storage8-highwaytocloud
+  title: storage8-highwaytocloud
+  description: storage8-highwaytocloud
+  tags:
+    - aws
+    - s3
+    - storage
+  annotations:
+    highwaytocloud.io/tool: terraform
+    highwaytocloud.io/service: create_s3_bucket
+spec:
+  type: storage
+  owner: guest
+  lifecycle: production
