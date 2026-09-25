@@ -1,11 +1,11 @@
-apiVersion: storage.highwaytocloud.io/v1alpha1
-kind: S3Bucket
-metadata:
-  name: "bucket2"
+apiVersion: "storage.highwaytocloud.io/v1alpha1"
+kind: "S3Bucket"
+metadata: {"name":"bucket2"}
 spec:
-  crossplane:
-    compositionRef:
-      name: s3buckets-aws
+  intelligentTieringEnabled: true
+  intelligentTieringArchiveDays: 90
+  intelligentTieringDeepArchiveDays: 0
+  crossplane: {"compositionRef":{"name":"s3buckets-aws"}}
   bucketName: "bucket2-311618538285-us-east-1-an"
   bucketNamespace: "account-regional"
   region: "us-east-1"
