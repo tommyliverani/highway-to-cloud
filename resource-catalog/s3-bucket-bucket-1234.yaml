@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: bucket-1234
+  title: bucket di test
+  description: bucket di test
+  tags:
+    - aws
+    - s3
+    - storage
+  annotations:
+    highwaytocloud.io/tool: crossplane
+    highwaytocloud.io/service: create_s3_bucket
+spec:
+  type: storage
+  owner: guest
+  lifecycle: production
