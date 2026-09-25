@@ -1,0 +1,3 @@
+deploy: argo
+{# The XR is applied by the instance's own Argo CD Application (created by the second component) #}
+argo_application: {{ resource_id | dump }}

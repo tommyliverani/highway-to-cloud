@@ -13,7 +13,7 @@ spec:
     path: building_blocks/crossplane
     directory:
       recurse: true
-  # Building blocks are cluster-scoped (XRD, Composition, Provider, Function).
+  # Building blocks are cluster-scoped (XRD, Composition, Provider, Function, ClusterProviderConfig).
   destination:
     server: https://kubernetes.default.svc
     namespace: crossplane-system

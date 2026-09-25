@@ -1,0 +1,18 @@
+# AWS credentials used by every composition (providerConfigRef → ClusterProviderConfig "default").
+# Only points to the secret created by infra/k8s/setup.sh from AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY:
+# no credentials in the repository. Its CRD comes with the AWS provider installed by this same sync, so
+# the dry run is skipped while it is missing and it is applied after the packages (wave 1).
+apiVersion: aws.m.upbound.io/v1beta1
+kind: ClusterProviderConfig
+metadata:
+  name: default
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: aws-credentials
+      key: credentials
