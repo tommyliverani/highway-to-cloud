@@ -1,0 +1,14 @@
+{# The instance as an S3Bucket XR (building_blocks/crossplane/s3_bucket_module); omitted fields take the XRD defaults #}
+apiVersion: storage.highwaytocloud.io/v1alpha1
+kind: S3Bucket
+metadata:
+  name: {{ parameters.name | dump }}
+spec:
+  crossplane:
+    compositionRef:
+      name: s3buckets-aws
+  bucketName: {{ parameters.name | dump }}
+  region: {{ platform.region | dump }}
+  forceDestroy: {{ platform.force_destroy }}
+  kmsKey: {{ security.kms_key | dump }}
+  kmsSseAlg: {{ security.kms_sse_alg | dump }}

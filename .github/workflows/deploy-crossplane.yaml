@@ -1,8 +1,8 @@
 name: deploy-crossplane
 
 # Deploy module for tool "crossplane". The actual deploy is GitOps: Argo CD syncs the manifests once the
-# resource is merged into main. This module only checks that the resource renders (helm template with
-# its variables.json), so a broken resource blocks the merge into main.
+# resource is merged into main. This module only checks that its manifests are valid Kubernetes objects,
+# so a broken resource blocks the merge into main.
 on:
   workflow_call:
     inputs:
@@ -28,14 +28,18 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
-      # A Crossplane resource is a Helm chart fed with variables.json: render it the way Argo CD will.
-      - name: Render manifests
+      # A Crossplane component is plain manifests (the XR), applied by its Argo CD Application.
+      - name: Validate manifests
         run: |
           [[ "$RESOURCE" =~ ^resources/[A-Za-z0-9._-]+$ ]] || { echo "::error::Invalid resource '$RESOURCE'"; exit 1; }
-          helm template "$(basename "$RESOURCE")" "$RESOURCE" --values "$RESOURCE/variables.json" > "$RUNNER_TEMP/manifests.yaml" || {
-            echo "::error::$RESOURCE does not render with helm template"
-            exit 1
-          }
-          yq '.' "$RUNNER_TEMP/manifests.yaml" > /dev/null || { echo "::error::$RESOURCE renders invalid YAML"; exit 1; }
-          cat "$RUNNER_TEMP/manifests.yaml"
+          found=0
+          while IFS= read -r -d '' f; do
+            found=1
+            yq -o=json '.' "$f" | jq -se 'all(.[]; .apiVersion and .kind)' > /dev/null || {
+              echo "::error::$f is not a valid Kubernetes manifest (apiVersion and kind are required)"
+              exit 1
+            }
+            echo "OK $f"
+          done < <(find "$RESOURCE" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) ! -name metadata.yaml -print0)
+          [ "$found" = 1 ] || { echo "::error::$RESOURCE contains no manifest"; exit 1; }
           echo "Argo CD will sync $RESOURCE after the merge into main"

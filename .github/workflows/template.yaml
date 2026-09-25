@@ -209,22 +209,41 @@ jobs:
             writeState("instance", { resource_id: resourceId, tool, create: info.create, components });
           }
 
-          // 3) For each component, detect whether its folder already exists and load its previous values.
+          // <name>.<ext>.njk renders to <name>.<ext>; a bare <name>.njk renders to <name>.yaml.
+          function renderedName(rel) {
+            const target = rel.slice(0, -".njk".length);
+            return path.extname(target) ? target : `${target}.yaml`;
+          }
+
+          // 3) For each <name>.njk of a component's template, the file it renders to (<name>), if it already
+          //    exists in the component, is loaded as the old_values of that template. Only data files
+          //    (.json/.yaml/.yml) are loaded; a data file may have changed format (e.g. variables.yaml ->
+          //    variables.json), so any data extension with the same base name is accepted.
           function loadComponents() {
             const instance = readState("instance");
             instance.components = instance.components.map((c, i) => {
               const dir = resolveSource(c.resource, `components[${i}].resource`);
+              const templateDir = path.join(resolveSource(c.template, `components[${i}].template`), c.tool);
+              if (!fs.existsSync(templateDir)) fail(`Template ${c.template} has no "${c.tool}" implementation`);
               const name = path.relative(REPO_ROOT, dir);
               const exists = fs.existsSync(dir);
-              const variablesFiles = DATA_EXTENSIONS.map((ext) => path.join(dir, `variables${ext}`)).filter((f) => fs.existsSync(f));
-              if (variablesFiles.length > 1) fail(`${name} has more than one variables file`);
 
-              const component = { ...c, exists, old_values: null };
-              if (variablesFiles.length) component.old_values = loadYaml(variablesFiles[0]) || {};
-              console.log(exists
-                ? `Component ${name} exists (old values: ${component.old_values ? "yes" : "no"})`
-                : `Component ${name} is new`);
-              return component;
+              const oldValues = {};
+              for (const rel of listFiles(templateDir).filter((f) => f.endsWith(".njk"))) {
+                const target = renderedName(rel);
+                const ext = path.extname(target);
+                if (!DATA_EXTENSIONS.includes(ext)) continue;
+                const base = target.slice(0, -ext.length);
+                const found = DATA_EXTENSIONS.map((e) => base + e).filter((f) => fs.existsSync(path.join(dir, f)));
+                if (found.length > 1) fail(`${name} has more than one ${base}.* file`);
+                if (found.length) {
+                  oldValues[rel] = loadYaml(path.join(dir, found[0])) || {};
+                  console.log(`Component ${name}: ${found[0]} loaded as old_values of ${rel}`);
+                }
+              }
+
+              console.log(exists ? `Component ${name} exists` : `Component ${name} is new`);
+              return { ...c, exists, old_values: oldValues };
             });
 
             writeState("instance", instance);
@@ -318,14 +337,12 @@ jobs:
               const templateName = path.relative(REPO_ROOT, templateDir);
               if (!fs.existsSync(templateDir)) fail(`Template ${r.template} has no "${tool}" implementation`);
 
-              const context = { ...values };
-              if (r.old_values) context.old_values = r.old_values;
-
               for (const rel of listFiles(templateDir)) {
                 const src = path.join(templateDir, rel);
                 if (rel.endsWith(".njk")) {
-                  const target = rel.slice(0, -".njk".length);
-                  const dest = path.join(resourceDir, path.extname(target) ? target : `${target}.yaml`);
+                  const context = { ...values };
+                  if (r.old_values[rel]) context.old_values = r.old_values[rel];
+                  const dest = path.join(resourceDir, renderedName(rel));
                   writeRendered(dest, env.renderString(fs.readFileSync(src, "utf8"), context), rel);
                 } else {
                   const dest = path.join(resourceDir, rel);

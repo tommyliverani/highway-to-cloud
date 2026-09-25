@@ -1,5 +1,5 @@
-{# Delivery component of a Crossplane instance: the Argo CD Application that syncs its Helm chart. #}
-{# The chart is the instance's main component, by convention in resources/<resource_id>. #}
+{# Delivery component of a Crossplane instance: the Argo CD Application that applies its manifests (the XR). #}
+{# They are the instance's main component, by convention in resources/<resource_id>. #}
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -11,9 +11,9 @@ spec:
     repoURL: {{ argo.repo_url | dump }}
     targetRevision: {{ argo.target_revision | dump }}
     path: {{ ("resources/" + resource_id) | dump }}
-    helm:
-      valueFiles:
-        - variables.json
+    # metadata.yaml is written by the platform process, not a Kubernetes object
+    directory:
+      exclude: metadata.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ argo.destination_namespace | dump }}

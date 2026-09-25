@@ -1,0 +1,14 @@
+{# old_values is the existing S3Bucket XR: re-emit it with the object lock fields set #}
+{% set overridden = ["objectLockEnabled", "objectLockRetentionType", "objectLockRetentionDays"] %}
+apiVersion: {{ old_values.apiVersion | dump }}
+kind: {{ old_values.kind | dump }}
+metadata: {{ old_values.metadata | dump }}
+spec:
+  objectLockEnabled: true
+  objectLockRetentionType: {{ security.object_lock_retention_type | dump }}
+  objectLockRetentionDays: {{ parameters.retention_days | int }}
+{% for key, value in old_values.spec %}
+{% if not (key in overridden) %}
+  {{ key }}: {{ value | dump }}
+{% endif %}
+{% endfor %}

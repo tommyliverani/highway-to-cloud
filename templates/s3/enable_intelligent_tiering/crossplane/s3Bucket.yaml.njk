@@ -1,0 +1,14 @@
+{# old_values is the existing S3Bucket XR: re-emit it with the intelligent tiering fields set #}
+{% set overridden = ["intelligentTieringEnabled", "intelligentTieringArchiveDays", "intelligentTieringDeepArchiveDays"] %}
+apiVersion: {{ old_values.apiVersion | dump }}
+kind: {{ old_values.kind | dump }}
+metadata: {{ old_values.metadata | dump }}
+spec:
+  intelligentTieringEnabled: true
+  intelligentTieringArchiveDays: {{ parameters.archive_days | int }}
+  intelligentTieringDeepArchiveDays: {{ (parameters.deep_archive_days or 0) | int }}
+{% for key, value in old_values.spec %}
+{% if not (key in overridden) %}
+  {{ key }}: {{ value | dump }}
+{% endif %}
+{% endfor %}
