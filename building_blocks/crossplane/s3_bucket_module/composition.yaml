@@ -37,6 +37,7 @@ spec:
             spec:
               forProvider:
                 region: {{ $region | quote }}
+                bucketNamespace: {{ $spec.bucketNamespace | default "global" | quote }}
                 forceDestroy: {{ $spec.forceDestroy | default false }}
                 {{- with $spec.tags }}
                 tags:
