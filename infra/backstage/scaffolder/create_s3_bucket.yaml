@@ -22,8 +22,8 @@ spec:
           title: Storage name
           type: string
           description: Unique name of the remote storage to create
-          pattern: '^(?!xn--|sthree-|amzn-s3-demo-)(?!.*(-s3alias|--ol-s3|--x-s3|--table-s3)$)[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$'
-          ui:help: '3-63 characters: lowercase letters, numbers and hyphens; must start and end with a letter or number.'
+          pattern: '^(?!xn--|sthree-|amzn-s3-demo-)[a-z0-9][a-z0-9-]{1,35}[a-z0-9]$'
+          ui:help: '3-37 characters: lowercase letters, numbers and hyphens; must start and end with a letter or number.'
           ui:autofocus: true
 
         title:

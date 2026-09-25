@@ -1,7 +1,8 @@
 # S3 Bucket
 resource "aws_s3_bucket" "bucket" {
-  bucket        = var.bucket_name
-  force_destroy = var.force_destroy
+  bucket           = var.bucket_name
+  bucket_namespace = var.bucket_namespace
+  force_destroy    = var.force_destroy
   tags = var.tags
 }
 

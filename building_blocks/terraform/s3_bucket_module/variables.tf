@@ -4,6 +4,17 @@ variable "bucket_name" {
   default     = null
 }
 
+variable "bucket_namespace" {
+  description = "(Forces new resource) global, or account-regional: the name must then end with -<account-id>-<region>-an and is reserved to this account."
+  type        = string
+  default     = "global"
+
+  validation {
+    condition     = contains(["global", "account-regional"], var.bucket_namespace)
+    error_message = "bucket_namespace must be global or account-regional."
+  }
+}
+
 variable "force_destroy" {
   description = "(Optional, Default:false ) A boolean that indicates all objects should be deleted from the bucket so that the bucket can be destroyed without error. These objects are not recoverable."
   type        = bool

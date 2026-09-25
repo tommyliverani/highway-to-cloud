@@ -1,4 +1,6 @@
 {# The instance as an S3Bucket XR (building_blocks/crossplane/s3_bucket_module); omitted fields take the XRD defaults #}
+{# In the account-regional namespace the physical name gets the reserved suffix, invisible to the user #}
+{% set account_regional = platform.bucket_namespace == "account-regional" %}
 apiVersion: storage.highwaytocloud.io/v1alpha1
 kind: S3Bucket
 metadata:
@@ -7,7 +9,8 @@ spec:
   crossplane:
     compositionRef:
       name: s3buckets-aws
-  bucketName: {{ parameters.name | dump }}
+  bucketName: {{ ((parameters.name + "-" + platform.account_id + "-" + platform.region + "-an") if account_regional else parameters.name) | dump }}
+  bucketNamespace: {{ (platform.bucket_namespace or "global") | dump }}
   region: {{ platform.region | dump }}
   forceDestroy: {{ platform.force_destroy }}
   kmsKey: {{ security.kms_key | dump }}

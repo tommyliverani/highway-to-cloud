@@ -25,6 +25,11 @@ spec:
                 bucketName:
                   type: string
                   description: Name of the bucket. Defaults to the name of this resource.
+                bucketNamespace:
+                  type: string
+                  enum: [global, account-regional]
+                  default: global
+                  description: global, or account-regional (the name must end with -<account-id>-<region>-an and is reserved to this account).
                 region:
                   type: string
                   description: AWS region of the bucket.
