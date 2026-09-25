@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: "s3-bucket-bucket-1234"
+  namespace: argocd
+spec:
+  project: "default"
+  source:
+    repoURL: "https://github.com/tommyliverani/highway-to-cloud.git"
+    targetRevision: "main"
+    path: "resources/s3-bucket-bucket-1234"
+    # metadata.yaml is written by the platform process, not a Kubernetes object
+    directory:
+      exclude: metadata.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: "platform-resources"
+  # No automated sync: deploying a Crossplane resource means syncing this Application (future deploy pipeline).
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
