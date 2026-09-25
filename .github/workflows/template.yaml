@@ -191,16 +191,15 @@ jobs:
             const recipe = info[tool];
             if (!Array.isArray(recipe) || !recipe.length) fail(`Service has no "${tool}" implementation`);
 
-            // A component uses the instance tool unless it declares its own (e.g. tool: k8s).
+            // Every component uses the instance tool; how it is deployed is declared by its template's metadata.yaml.
             const context = { ...values, resource_id: resourceId };
             const components = recipe.map((entry, i) => {
               const c = Object.fromEntries(Object.entries(entry || {}).map(([k, v]) => [k, renderIn(context)(v)]));
               for (const key of ["template", "resource"]) {
                 if (!c[key]) fail(`service-info.yaml ${tool}[${i}] is missing ${key}`);
               }
-              c.tool = c.tool || tool;
-              if (!TOOL_PATTERN.test(c.tool)) fail(`Invalid tool "${c.tool}" in ${tool}[${i}]`);
-              console.log(`Component ${c.template} -> ${c.resource} (tool: ${c.tool})`);
+              c.tool = tool;
+              console.log(`Component ${c.template} -> ${c.resource}`);
               return c;
             });
 
@@ -352,14 +351,13 @@ jobs:
                 }
               }
 
+              // metadata.yaml is declared by the creation template and tells which deploy pipeline applies.
               const metadataFile = path.join(resourceDir, "metadata.yaml");
-              if (!fs.existsSync(metadataFile)) {
-                fs.writeFileSync(metadataFile, yaml.dump({ tool }));
-                console.log(`Created  ${path.relative(REPO_ROOT, metadataFile)} (tool: ${tool})`);
-              }
+              const deploy = fs.existsSync(metadataFile) ? (loadYaml(metadataFile) || {}).deploy : null;
+              if (!deploy) fail(`${path.relative(REPO_ROOT, resourceDir)} has no metadata.yaml with a deploy key: declare it in ${templateName}`);
 
               summary.push(`- \`${path.relative(REPO_ROOT, resourceDir)}\` — ${r.exists ? "updated" : "created"}, ` +
-                `template \`${templateName}\``);
+                `template \`${templateName}\`, deploy \`${deploy}\``);
             });
 
             if (instance.create) writeCatalogEntry(instance, values);

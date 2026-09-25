@@ -1,14 +1,15 @@
-name: deploy-k8s
+name: deploy-argo
 
-# Deploy module for tool "k8s" (plain Kubernetes manifests, e.g. the Argo CD Application of a Crossplane
-# instance). The actual deploy is GitOps: the argo-app root Application picks the manifests up once they
-# are merged into main. This module only checks that every manifest is a valid Kubernetes object, so a
-# broken component blocks the merge into main.
+# Deploy module for "deploy: argo" components: Kubernetes manifests delivered by Argo CD, whatever tool
+# produced them (a Crossplane XR, or the Argo CD Application of a Crossplane instance). The actual deploy
+# is GitOps: Argo CD applies the manifests once they are merged into main (the root app argo-app for
+# resources/argo-apps, the instance's Application for the XR). This module only checks that every manifest
+# is a valid Kubernetes object, so a broken component blocks the merge into main.
 on:
   workflow_call:
     inputs:
       resource:
-        description: 'Component folder, e.g. resources/argo-apps/s3-bucket-x'
+        description: 'Component folder, e.g. resources/s3-bucket-x or resources/argo-apps/s3-bucket-x'
         required: true
         type: string
       ref:

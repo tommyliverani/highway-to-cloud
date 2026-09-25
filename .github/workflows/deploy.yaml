@@ -22,8 +22,7 @@ jobs:
     outputs:
       sha: ${{ steps.find.outputs.sha }}
       terraform: ${{ steps.find.outputs.terraform }}
-      crossplane: ${{ steps.find.outputs.crossplane }}
-      k8s: ${{ steps.find.outputs.k8s }}
+      argo: ${{ steps.find.outputs.argo }}
     steps:
       - name: Checkout develop
         uses: actions/checkout@v4
@@ -31,12 +30,12 @@ jobs:
           ref: develop
           fetch-depth: 0
 
-      # A component is the nearest folder under resources/ with a metadata.yaml (its tool), at any depth:
-      # e.g. resources/s3-bucket-x/ or resources/argo-apps/s3-bucket-x/.
-      - name: Group components to deploy by tool
+      # A component is the nearest folder under resources/ with a metadata.yaml, at any depth (e.g.
+      # resources/s3-bucket-x/ or resources/argo-apps/s3-bucket-x/); its "deploy" key picks the pipeline.
+      - name: Group components by deploy pipeline
         id: find
         run: |
-          supported="terraform crossplane k8s"
+          supported="terraform argo"
           plan='{}'
           components=""
           for file in $(git diff --name-only origin/main HEAD -- resources/); do
@@ -51,21 +50,21 @@ jobs:
             fi
           done
           for dir in $(tr ' ' '\n' <<< "$components" | sort -u); do
-            tool=$(yq '.tool' "$dir/metadata.yaml")
-            if ! echo " $supported " | grep -q " $tool "; then
-              echo "::error::$dir uses tool '$tool', which has no deploy module (deploy-$tool.yaml)"
+            deploy=$(yq '.deploy' "$dir/metadata.yaml")
+            if ! echo " $supported " | grep -q " $deploy "; then
+              echo "::error::$dir uses deploy '$deploy', which has no deploy module (deploy-$deploy.yaml)"
               exit 1
             fi
-            plan=$(jq -c --arg tool "$tool" --arg dir "$dir" '.[$tool] += [$dir]' <<< "$plan")
+            plan=$(jq -c --arg deploy "$deploy" --arg dir "$dir" '.[$deploy] += [$dir]' <<< "$plan")
           done
           echo "Deploy plan:"; jq . <<< "$plan"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          for tool in $supported; do
-            echo "$tool=$(jq -c --arg tool "$tool" '.[$tool] // []' <<< "$plan")" >> "$GITHUB_OUTPUT"
+          for deploy in $supported; do
+            echo "$deploy=$(jq -c --arg deploy "$deploy" '.[$deploy] // []' <<< "$plan")" >> "$GITHUB_OUTPUT"
           done
 
-  # One job per technology: GitHub Actions does not allow expressions in `uses:`,
-  # so adding a technology means adding its module and a job here.
+  # One job per deploy pipeline: GitHub Actions does not allow expressions in `uses:`,
+  # so adding a pipeline means adding its module and a job here.
   terraform:
     needs: plan
     if: needs.plan.outputs.terraform != '[]'
@@ -79,27 +78,14 @@ jobs:
       ref: ${{ needs.plan.outputs.sha }}
     secrets: inherit
 
-  crossplane:
+  argo:
     needs: plan
-    if: needs.plan.outputs.crossplane != '[]'
+    if: needs.plan.outputs.argo != '[]'
     strategy:
       fail-fast: false
       matrix:
-        resource: ${{ fromJSON(needs.plan.outputs.crossplane) }}
-    uses: ./.github/workflows/deploy-crossplane.yaml
-    with:
-      resource: ${{ matrix.resource }}
-      ref: ${{ needs.plan.outputs.sha }}
-    secrets: inherit
-
-  k8s:
-    needs: plan
-    if: needs.plan.outputs.k8s != '[]'
-    strategy:
-      fail-fast: false
-      matrix:
-        resource: ${{ fromJSON(needs.plan.outputs.k8s) }}
-    uses: ./.github/workflows/deploy-k8s.yaml
+        resource: ${{ fromJSON(needs.plan.outputs.argo) }}
+    uses: ./.github/workflows/deploy-argo.yaml
     with:
       resource: ${{ matrix.resource }}
       ref: ${{ needs.plan.outputs.sha }}
@@ -108,7 +94,7 @@ jobs:
   # Runs only if no module failed (skipped modules are fine). Only the deployed commit is merged,
   # even if develop moved on meanwhile.
   merge-main:
-    needs: [plan, terraform, crossplane, k8s]
+    needs: [plan, terraform, argo]
     if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
