@@ -19,6 +19,8 @@ permissions:
 jobs:
   templater:
     runs-on: ubuntu-latest
+    outputs:
+      prs: ${{ steps.split.outputs.prs }}
 
     # Inputs reach the script only through env vars, never interpolated into code.
     # develop is the working branch (rendered, not yet deployed); main holds deployed resources only.
@@ -321,15 +323,15 @@ jobs:
 
           // 4) Copy each component's template folder into the component folder. <name>.<ext>.njk renders to <name>.<ext>;
           //    a bare <name>.njk renders to <name>.yaml. Other files are copied as-is.
+          //    Each component becomes its own pull request (in a multi-repo setup, one per repository): the
+          //    render step lists them in prs.json with the paths they own and their PR body.
           function renderComponents() {
             const values = readState("values");
             const instance = readState("instance");
-            const summary = [
-              `Resource \`${instance.resource_id}\` — ${instance.create ? "created" : "updated"} with tool \`${instance.tool}\``,
-              "",
-            ];
+            const total = instance.components.length;
+            const catalogFile = `${RESOURCE_CATALOG_DIR}/${instance.resource_id}.yaml`;
 
-            instance.components.forEach((r, i) => {
+            const prs = instance.components.map((r, i) => {
               const resourceDir = resolveSource(r.resource, `components[${i}].resource`);
               const templateDir = resolveSource(r.template, `components[${i}].template`);
               const templateName = path.relative(REPO_ROOT, templateDir);
@@ -355,12 +357,24 @@ jobs:
               const deploy = fs.existsSync(metadataFile) ? (loadYaml(metadataFile) || {}).deploy : null;
               if (!deploy) fail(`${path.relative(REPO_ROOT, resourceDir)} has no metadata.yaml with a deploy key: declare it in ${templateName}`);
 
-              summary.push(`- \`${path.relative(REPO_ROOT, resourceDir)}\` — ${r.exists ? "updated" : "created"}, ` +
-                `template \`${templateName}\`, deploy \`${deploy}\``);
+              // The resource catalog entry travels with the first component, so the instance appears in
+              // Backstage together with the code that implements it.
+              const name = path.relative(REPO_ROOT, resourceDir);
+              const paths = [name, ...(instance.create && i === 0 ? [catalogFile] : [])];
+              const body = [
+                `Resource \`${instance.resource_id}\` — ${instance.create ? "created" : "updated"} with tool ` +
+                  `\`${instance.tool}\`: component ${i + 1} of ${total}.`,
+                "",
+                `- \`${name}\` — ${r.exists ? "updated" : "created"}, template \`${templateName}\`, deploy \`${deploy}\``,
+                ...(paths.length > 1 ? [`- \`${catalogFile}\` — resource catalog entry`] : []),
+                ...(total > 1 ? ["", "Merge the pull requests of this resource in order (component 1 first)."] : []),
+              ];
+              fs.writeFileSync(path.join(STATE_DIR, `pr-${i}.md`), `${body.join("\n")}\n`);
+              return { index: i, name, paths, title: `IDP: ${process.env.SERVICE_ID} ${instance.resource_id} (${i + 1}/${total})` };
             });
 
             if (instance.create) writeCatalogEntry(instance, values);
-            fs.writeFileSync(path.join(STATE_DIR, "summary.md"), `${summary.join("\n")}\n`);
+            writeState("prs", prs);
           }
 
           const commands = { values: buildValues, instance: resolveInstance, load: loadComponents, render: renderComponents };
@@ -381,13 +395,65 @@ jobs:
       - name: 4) Render components and resource catalog
         run: node "$IDP_SCRIPT" render
 
-      - name: 5) Open pull request
+      # One patch per component (with its PR body), handed to the pull-requests job.
+      - name: 5) Split changes by component
+        id: split
+        run: |
+          PRS_DIR="$RUNNER_TEMP/idp/prs"
+          mkdir -p "$PRS_DIR"
+          git add -A
+          jq -c '.[]' "$STATE_DIR/prs.json" | while read -r pr; do
+            index=$(jq -r '.index' <<< "$pr")
+            mapfile -t paths < <(jq -r '.paths[]' <<< "$pr")
+            git diff --cached --binary -- "${paths[@]}" > "$PRS_DIR/$index.patch"
+            cp "$STATE_DIR/pr-$index.md" "$PRS_DIR/$index.md"
+            echo "Component $index: $(git diff --cached --name-only -- "${paths[@]}" | wc -l) changed files"
+          done
+          echo "prs=$(jq -c '[.[] | {index, name, title}]' "$STATE_DIR/prs.json")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload component patches
+        uses: actions/upload-artifact@v4
+        with:
+          name: idp-components
+          path: ${{ runner.temp }}/idp/prs
+
+  # One pull request per component, in the component's repository (this one in the demo).
+  pull-requests:
+    needs: templater
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.templater.outputs.prs) }}
+
+    env:
+      WORK_BRANCH: develop
+      INDEX: ${{ matrix.pr.index }}
+
+    steps:
+      - name: Checkout working branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.WORK_BRANCH }}
+
+      - name: Download component patches
+        uses: actions/download-artifact@v4
+        with:
+          name: idp-components
+          path: ${{ runner.temp }}/prs
+
+      - name: Apply component changes
+        run: |
+          patch="$RUNNER_TEMP/prs/$INDEX.patch"
+          if [ -s "$patch" ]; then git apply --index "$patch"; else echo "No changes for this component"; fi
+
+      - name: Open pull request
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           base: ${{ env.WORK_BRANCH }}
-          branch: idp/${{ inputs.service_id }}-${{ github.run_id }}
+          branch: idp/${{ inputs.service_id }}-${{ github.run_id }}-${{ matrix.pr.index }}
           delete-branch: true
-          commit-message: 'feat(${{ inputs.service_id }}): render resources'
-          title: 'IDP: ${{ inputs.service_id }}'
-          body-path: ${{ runner.temp }}/idp/state/summary.md
+          commit-message: 'feat(${{ inputs.service_id }}): render ${{ matrix.pr.name }}'
+          title: ${{ matrix.pr.title }}
+          body-path: ${{ runner.temp }}/prs/${{ matrix.pr.index }}.md
