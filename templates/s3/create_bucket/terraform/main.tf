@@ -2,6 +2,7 @@ module "s3" {
   source = "github.com/tommyliverani/highway-to-cloud//building_blocks/terraform/s3_bucket_module?ref=main"
 
   bucket_name           = var.bucket_name
+  bucket_namespace      = var.bucket_namespace
   force_destroy         = var.force_destroy
   enable_server_side_encryption = var.enable_server_side_encryption
   kms_key               = var.kms_key

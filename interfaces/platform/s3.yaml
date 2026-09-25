@@ -2,6 +2,9 @@ force_destroy: false
 object_lock_enabled: false
 region: us-east-1
 account_id: 311618538285
+# account-regional: bucket names get the reserved suffix -<account_id>-<region>-an, so they never
+# collide with buckets of other AWS accounts (global: plain names, unique across all of AWS)
+bucket_namespace: account-regional
 
 # Lifecycle rule: housekeeping applied together with the user's rule
 lifecycle_noncurrent_version_expiration_days: 30

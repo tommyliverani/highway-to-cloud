@@ -1,5 +1,7 @@
-{# Parameters#}
-bucket_name: {{ parameters.name | dump }}
+{# Parameters: in the account-regional namespace the physical name gets the reserved suffix, invisible to the user #}
+{% set account_regional = platform.bucket_namespace == "account-regional" %}
+bucket_name: {{ ((parameters.name + "-" + platform.account_id + "-" + platform.region + "-an") if account_regional else parameters.name) | dump }}
+bucket_namespace: {{ (platform.bucket_namespace or "global") | dump }}
 
 {# Platform #}
 force_destroy: {{ platform.force_destroy }}
