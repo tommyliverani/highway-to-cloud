@@ -191,14 +191,14 @@ jobs:
             const recipe = info[tool];
             if (!Array.isArray(recipe) || !recipe.length) fail(`Service has no "${tool}" implementation`);
 
-            // Every component uses the instance tool; how it is deployed is declared by its template's metadata.yaml.
+            // The recipe of each tool lists its components with the full template path (tool folder included);
+            // how a component is deployed is declared by its template's metadata.yaml.
             const context = { ...values, resource_id: resourceId };
             const components = recipe.map((entry, i) => {
               const c = Object.fromEntries(Object.entries(entry || {}).map(([k, v]) => [k, renderIn(context)(v)]));
               for (const key of ["template", "resource"]) {
                 if (!c[key]) fail(`service-info.yaml ${tool}[${i}] is missing ${key}`);
               }
-              c.tool = tool;
               console.log(`Component ${c.template} -> ${c.resource}`);
               return c;
             });
@@ -222,8 +222,8 @@ jobs:
             const instance = readState("instance");
             instance.components = instance.components.map((c, i) => {
               const dir = resolveSource(c.resource, `components[${i}].resource`);
-              const templateDir = path.join(resolveSource(c.template, `components[${i}].template`), c.tool);
-              if (!fs.existsSync(templateDir)) fail(`Template ${c.template} has no "${c.tool}" implementation`);
+              const templateDir = resolveSource(c.template, `components[${i}].template`);
+              if (!fs.existsSync(templateDir)) fail(`Template ${c.template} not found`);
               const name = path.relative(REPO_ROOT, dir);
               const exists = fs.existsSync(dir);
 
@@ -319,7 +319,7 @@ jobs:
             console.log(`Recorded ${path.relative(REPO_ROOT, dest)} (tool: ${instance.tool})`);
           }
 
-          // 4) Copy <template>/<tool> into each component folder. <name>.<ext>.njk renders to <name>.<ext>;
+          // 4) Copy each component's template folder into the component folder. <name>.<ext>.njk renders to <name>.<ext>;
           //    a bare <name>.njk renders to <name>.yaml. Other files are copied as-is.
           function renderComponents() {
             const values = readState("values");
@@ -331,10 +331,9 @@ jobs:
 
             instance.components.forEach((r, i) => {
               const resourceDir = resolveSource(r.resource, `components[${i}].resource`);
-              const tool = r.tool;
-              const templateDir = path.join(resolveSource(r.template, `components[${i}].template`), tool);
+              const templateDir = resolveSource(r.template, `components[${i}].template`);
               const templateName = path.relative(REPO_ROOT, templateDir);
-              if (!fs.existsSync(templateDir)) fail(`Template ${r.template} has no "${tool}" implementation`);
+              if (!fs.existsSync(templateDir)) fail(`Template ${r.template} not found`);
 
               for (const rel of listFiles(templateDir)) {
                 const src = path.join(templateDir, rel);

@@ -2,10 +2,10 @@ create: true
 resourceId: s3-bucket-{{ parameters.name }}
 default_tool: terraform
 terraform:
-  - template: github.com/tommyliverani/highway-to-cloud//templates/s3/create_bucket
+  - template: github.com/tommyliverani/highway-to-cloud//templates/s3/create_bucket/terraform
     resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}
 crossplane:
-  - template: github.com/tommyliverani/highway-to-cloud//templates/s3/create_bucket
+  - template: github.com/tommyliverani/highway-to-cloud//templates/s3/create_bucket/crossplane
     resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}
-  - template: github.com/tommyliverani/highway-to-cloud//templates/argo/create_application
+  - template: github.com/tommyliverani/highway-to-cloud//templates/argo/create_application/crossplane
     resource: github.com/tommyliverani/highway-to-cloud//resources/argo-apps/{{ resource_id }}
