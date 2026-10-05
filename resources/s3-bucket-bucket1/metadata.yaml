@@ -1,1 +1,2 @@
-deploy: terraform
+deploy: argo
+argo_application: "s3-bucket-bucket1"
