@@ -1,7 +1,7 @@
 create: true
-resourceId: k3s-cluster-{{ parameters.name }}
-scaffolding_plan: ansible
+resourceId: kubernetes-cluster-{{ parameters.name }}
+scaffolding_plan: k3s-ansible
 plans:
-  ansible:
+  k3s-ansible:
     - template: github.com/tommyliverani/highway-to-cloud//templates/k3s/create_cluster/ansible
       resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}
