@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  plan:
+  deploy:
     runs-on: self-hosted
     outputs:
       sha: ${{ steps.find.outputs.sha }}
@@ -68,48 +68,48 @@ jobs:
   # One job per deploy pipeline: GitHub Actions does not allow expressions in `uses:`,
   # so adding a pipeline means adding its module and a job here.
   terraform:
-    needs: plan
-    if: needs.plan.outputs.terraform != '[]'
+    needs: deploy
+    if: needs.deploy.outputs.terraform != '[]'
     strategy:
       fail-fast: false
       matrix:
-        resource: ${{ fromJSON(needs.plan.outputs.terraform) }}
+        resource: ${{ fromJSON(needs.deploy.outputs.terraform) }}
     uses: ./.github/workflows/deploy-terraform.yaml
     with:
       resource: ${{ matrix.resource }}
-      ref: ${{ needs.plan.outputs.sha }}
+      ref: ${{ needs.deploy.outputs.sha }}
     secrets: inherit
 
   argo:
-    needs: plan
-    if: needs.plan.outputs.argo != '[]'
+    needs: deploy
+    if: needs.deploy.outputs.argo != '[]'
     strategy:
       fail-fast: false
       matrix:
-        resource: ${{ fromJSON(needs.plan.outputs.argo) }}
+        resource: ${{ fromJSON(needs.deploy.outputs.argo) }}
     uses: ./.github/workflows/deploy-argo.yaml
     with:
       resource: ${{ matrix.resource }}
-      ref: ${{ needs.plan.outputs.sha }}
+      ref: ${{ needs.deploy.outputs.sha }}
     secrets: inherit
 
   ansible:
-    needs: plan
-    if: needs.plan.outputs.ansible != '[]'
+    needs: deploy
+    if: needs.deploy.outputs.ansible != '[]'
     strategy:
       fail-fast: false
       matrix:
-        resource: ${{ fromJSON(needs.plan.outputs.ansible) }}
+        resource: ${{ fromJSON(needs.deploy.outputs.ansible) }}
     uses: ./.github/workflows/deploy-ansible.yaml
     with:
       resource: ${{ matrix.resource }}
-      ref: ${{ needs.plan.outputs.sha }}
+      ref: ${{ needs.deploy.outputs.sha }}
     secrets: inherit
 
   # Runs only if no module failed (skipped modules are fine). Only the deployed commit is merged,
   # even if develop moved on meanwhile.
   merge-main:
-    needs: [plan, terraform, argo, ansible]
+    needs: [deploy, terraform, argo, ansible]
     if: ${{ !failure() && !cancelled() }}
     runs-on: self-hosted
     steps:
@@ -120,7 +120,7 @@ jobs:
 
       - name: Merge develop into main
         env:
-          DEPLOYED_SHA: ${{ needs.plan.outputs.sha }}
+          DEPLOYED_SHA: ${{ needs.deploy.outputs.sha }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -132,18 +132,18 @@ jobs:
   # is manual: this job lists the Applications declared by the deployed argo components (argo_application
   # in their metadata.yaml), those delivering other Applications (resources/argo-apps) first.
   argo-sync:
-    needs: [plan, merge-main]
-    if: needs.plan.outputs.argo != '[]' && needs.merge-main.result == 'success'
+    needs: [deploy, merge-main]
+    if: needs.deploy.outputs.argo != '[]' && needs.merge-main.result == 'success'
     runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.plan.outputs.sha }}
+          ref: ${{ needs.deploy.outputs.sha }}
 
       - name: List Argo CD Applications to sync
         env:
-          COMPONENTS: ${{ needs.plan.outputs.argo }}
+          COMPONENTS: ${{ needs.deploy.outputs.argo }}
         run: |
           apps=$(jq -r '.[]' <<< "$COMPONENTS" | while read -r dir; do
             order=1; [[ "$dir" == resources/argo-apps/* ]] && order=0

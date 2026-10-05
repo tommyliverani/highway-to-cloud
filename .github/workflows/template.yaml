@@ -162,7 +162,8 @@ jobs:
           }
 
           // 2) Resolve the instance from service-info.yaml: its resourceId, its tool (recorded in the resource
-          //    catalog, or default_tool for a new instance) and the components of that tool's recipe.
+          //    catalog, or scaffolding_plan for a new instance) and the components of that tool's recipe
+          //    (plans.<tool>).
           //    Strings are rendered after YAML parsing, so input parameters cannot inject extra YAML keys.
           function resolveInstance() {
             const values = readState("values");
@@ -186,12 +187,15 @@ jobs:
               if (!tool) fail(`${RESOURCE_CATALOG_DIR}/${resourceId}.yaml has no ${TOOL_ANNOTATION} annotation`);
             } else {
               if (!info.create) fail(`Resource ${resourceId} not found in ${RESOURCE_CATALOG_DIR}/`);
-              tool = info.default_tool;
-              if (!tool) fail("service-info.yaml: default_tool is required when create is true");
+              tool = info.scaffolding_plan;
+              if (!tool) fail("service-info.yaml: scaffolding_plan is required when create is true");
             }
             if (!TOOL_PATTERN.test(tool)) fail(`Invalid tool "${tool}"`);
-            const recipe = info[tool];
-            if (!Array.isArray(recipe) || !recipe.length) fail(`Service has no "${tool}" implementation`);
+            if (typeof info.plans !== "object" || info.plans === null || Array.isArray(info.plans)) {
+              fail("service-info.yaml: plans must be a mapping of tool -> recipe");
+            }
+            const recipe = info.plans[tool];
+            if (!Array.isArray(recipe) || !recipe.length) fail(`Service has no "${tool}" implementation in plans`);
 
             // The recipe of each tool lists its components with the full template path (tool folder included);
             // how a component is deployed is declared by its template's metadata.yaml.
