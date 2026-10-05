@@ -432,7 +432,7 @@ jobs:
   # One pull request per component, in the component's repository (this one in the demo).
   pull-requests:
     needs: templater
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:

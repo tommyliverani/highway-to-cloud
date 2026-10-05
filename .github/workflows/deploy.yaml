@@ -97,7 +97,7 @@ jobs:
   merge-main:
     needs: [plan, terraform, argo]
     if: ${{ !failure() && !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -120,7 +120,7 @@ jobs:
   argo-sync:
     needs: [plan, merge-main]
     if: needs.plan.outputs.argo != '[]' && needs.merge-main.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
