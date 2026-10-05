@@ -35,9 +35,16 @@ jobs:
           [ -f "$RESOURCE/playbook.yml" ] || { echo "::error::$RESOURCE/playbook.yml not found"; exit 1; }
           [ -f "$RESOURCE/inventory.yaml" ] || { echo "::error::$RESOURCE/inventory.yaml not found"; exit 1; }
 
+      # Debian/Ubuntu marks the system Python as "externally managed" (PEP 668), so a plain
+      # "pip install" is refused; a dedicated venv avoids touching system packages entirely.
       - name: Install Ansible and role dependencies
         run: |
-          command -v ansible-playbook >/dev/null || pip install --user ansible
+          if ! command -v ansible-playbook >/dev/null; then
+            python3 -m venv /tmp/ansible-venv
+            /tmp/ansible-venv/bin/pip install --quiet ansible
+            echo "/tmp/ansible-venv/bin" >> "$GITHUB_PATH"
+            export PATH="/tmp/ansible-venv/bin:$PATH"
+          fi
           ansible-galaxy role install xanmanning.k3s,v3.6.4 -p /tmp/ansible-galaxy-roles
 
       - name: Run playbook
