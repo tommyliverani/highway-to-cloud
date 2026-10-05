@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   plan:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       sha: ${{ steps.find.outputs.sha }}
       terraform: ${{ steps.find.outputs.terraform }}

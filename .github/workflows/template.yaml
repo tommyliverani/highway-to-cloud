@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   templater:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       prs: ${{ steps.split.outputs.prs }}
 
