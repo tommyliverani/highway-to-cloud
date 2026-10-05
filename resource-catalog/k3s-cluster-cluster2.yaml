@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: cluster2
+  title: cluster2
+  description: cluster2
+  tags:
+    - onPrem
+    - k3s
+    - cluster
+  annotations:
+    highwaytocloud.io/tool: ansible
+    highwaytocloud.io/service: create_cluster
+spec:
+  type: cluster
+  owner: guest
+  lifecycle: production
