@@ -6,7 +6,7 @@ galaxy_info:
   license: MIT
   min_ansible_version: "2.14"
 
-dependencies:
-  - role: xanmanning.k3s
-    src: xanmanning.k3s
-    version: v3.6.4
+# xanmanning.k3s is NOT declared here as a role dependency: meta dependencies run automatically, before
+# this role's own tasks, with the dependency's own defaults (k3s_become: false) — causing it to run once
+# unprivileged (failing to write to /usr/local/bin) before tasks/main.yml's own include_role (which does
+# pass k3s_become: true) ever runs. tasks/main.yml includes it explicitly instead, with the right vars.
