@@ -1,0 +1,2 @@
+- source: github.com/tommyliverani/highway-to-cloud//interfaces/platform/k3s.yaml
+  alias: platform

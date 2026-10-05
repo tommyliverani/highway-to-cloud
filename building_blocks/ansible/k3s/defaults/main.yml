@@ -1,0 +1,6 @@
+---
+# defaults file for k3s
+k3s_release_version: "v1.31.1+k3s1"
+cluster_dns_name: null
+cluster_dns_ip: null
+k3s_kubeconfig_local_path: "{{ role_path }}/files/{{ cluster_name }}.yaml"

@@ -1,0 +1,20 @@
+---
+
+- name: Capture k3s role path before sub-role overrides it
+  ansible.builtin.set_fact:
+    _k3s_role_path: "{{ role_path }}"
+
+- name: Install k3s
+  ansible.builtin.include_role:
+    name: xanmanning.k3s
+  vars:
+    k3s_become: true
+    k3s_server_config_yaml_d_files:
+      - "{{ _k3s_role_path }}/templates/tls-san.yaml.j2"
+
+- name: Copy the cluster-admin kubeconfig to the local node
+  ansible.builtin.fetch:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "{{ k3s_kubeconfig_local_path }}"
+    flat: true
+  when: "'_servers' in (group_names | join(' '))"

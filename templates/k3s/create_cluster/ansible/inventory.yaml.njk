@@ -1,0 +1,10 @@
+k3s_servers:
+  hosts:
+    {{ parameters.name | dump }}:
+      ansible_connection: local
+  vars:
+    cluster_name: {{ parameters.name | dump }}
+    k3s_release_version: {{ platform.k3s_release_version | dump }}
+    cluster_dns_name: {{ parameters.name | dump }}
+    cluster_dns_ip: {{ platform.cluster_dns_ip | dump }}
+    k3s_kubeconfig_local_path: {{ (platform.k3s_kubeconfig_local_path ~ "/" ~ resource_id ~ ".yaml") | dump }}

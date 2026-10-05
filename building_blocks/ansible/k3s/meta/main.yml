@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: k3s
+  author: tommyliverani
+  description: Installs and configures k3s using xanmanning.k3s
+  license: MIT
+  min_ansible_version: "2.14"
+
+dependencies:
+  - role: xanmanning.k3s
+    src: xanmanning.k3s
+    version: v3.6.4

@@ -3,3 +3,4 @@ infra/k8s/.env
 scripts.md
 CLAUDE.md
 actions-runner
+infra/secrets

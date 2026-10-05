@@ -1,0 +1,44 @@
+name: deploy-ansible
+
+# Deploy module for tool "ansible": runs the component's static playbook.yml against its rendered
+# inventory.yaml. The building block role is already in the checkout (building_blocks/ansible), so no
+# remote fetch is needed for it; roles it depends on (e.g. xanmanning.k3s) are installed from Galaxy here.
+on:
+  workflow_call:
+    inputs:
+      resource:
+        description: 'Resource folder, e.g. resources/k3s-cluster-x'
+        required: true
+        type: string
+      ref:
+        description: 'Commit to deploy'
+        required: true
+        type: string
+
+jobs:
+  apply:
+    runs-on: self-hosted
+
+    env:
+      RESOURCE: ${{ inputs.resource }}
+      ANSIBLE_ROLES_PATH: ${{ github.workspace }}/building_blocks/ansible:/tmp/ansible-galaxy-roles
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Check inputs
+        run: |
+          [[ "$RESOURCE" =~ ^resources/[A-Za-z0-9._-]+$ ]] || { echo "::error::Invalid resource '$RESOURCE'"; exit 1; }
+          [ -f "$RESOURCE/playbook.yml" ] || { echo "::error::$RESOURCE/playbook.yml not found"; exit 1; }
+          [ -f "$RESOURCE/inventory.yaml" ] || { echo "::error::$RESOURCE/inventory.yaml not found"; exit 1; }
+
+      - name: Install Ansible and role dependencies
+        run: |
+          command -v ansible-playbook >/dev/null || pip install --user ansible
+          ansible-galaxy role install xanmanning.k3s,v3.6.4 -p /tmp/ansible-galaxy-roles
+
+      - name: Run playbook
+        run: ansible-playbook -i "$RESOURCE/inventory.yaml" "$RESOURCE/playbook.yml"
