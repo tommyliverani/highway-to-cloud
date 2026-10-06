@@ -1,0 +1,11 @@
+---
+# Creates Kubernetes secrets from files on the machine that runs Ansible, so the content never goes through
+# the repository: only the paths are configured. Nothing is done while the list is empty.
+#
+# Each item: path (absolute, required), namespace (required, created if missing), name (optional, default:
+# the file name). The key of the secret is the file name, as in "kubectl create secret generic --from-file".
+kubernetes_secrets: []
+
+# Access to the target cluster. k8s_kubeconfig is required when kubernetes_secrets is not empty.
+k8s_kubectl: kubectl
+k8s_kubeconfig: ""

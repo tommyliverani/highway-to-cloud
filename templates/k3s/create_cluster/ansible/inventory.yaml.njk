@@ -1,3 +1,4 @@
+{% set kubeconfig = platform.k3s_kubeconfig_local_path ~ "/" ~ resource_id ~ ".yaml" %}
 k3s_servers:
   hosts:
     {{ parameters.name | dump }}:
@@ -8,4 +9,7 @@ k3s_servers:
     cluster_dns_name: {{ parameters.name | dump }}
     cluster_dns_ip: {{ platform.cluster_dns_ip | dump }}
     k3s_install_dir: {{ platform.k3s_install_dir | dump }}
-    k3s_kubeconfig_local_path: {{ (platform.k3s_kubeconfig_local_path ~ "/" ~ resource_id ~ ".yaml") | dump }}
+    k3s_kubeconfig_local_path: {{ kubeconfig | dump }}
+    k8s_kubeconfig: {{ kubeconfig | dump }}
+    k8s_kubectl: {{ (platform.k3s_install_dir ~ "/kubectl") | dump }}
+    kubernetes_secrets: {{ (security.secrets or []) | dump }}

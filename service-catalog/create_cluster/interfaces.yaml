@@ -1,5 +1,7 @@
 - source: github.com/tommyliverani/highway-to-cloud//interfaces/platform/k3s.yaml
   alias: platform
+- source: github.com/tommyliverani/highway-to-cloud//interfaces/security/kubernetes.yaml
+  alias: security
 - source: github.com/tommyliverani/highway-to-cloud//interfaces/platform/argo.yaml
   alias: argo
 - source: github.com/tommyliverani/highway-to-cloud//interfaces/platform/crossplane.yaml

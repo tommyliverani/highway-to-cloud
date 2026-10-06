@@ -1,0 +1,37 @@
+---
+# kubectl talks to the target cluster as the invoking user, not as root (play-level become).
+- name: Create the Kubernetes secrets
+  become: false
+  when: _secrets | length > 0
+  block:
+    - name: Check the configuration
+      ansible.builtin.assert:
+        that:
+          - k8s_kubeconfig | length > 0
+          - secret.path is match('^/[A-Za-z0-9._/+-]+$')
+          - secret.namespace is match('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')
+          - (secret.name | default(secret.path | basename)) is match('^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$')
+        fail_msg: >-
+          k8s_kubeconfig is required, and every secret needs an absolute path and a namespace (and a valid
+          name, or a file name that is one): {{ secret.path | default('?') }}
+        quiet: true
+      loop: "{{ _secrets }}"
+      loop_control:
+        loop_var: secret
+        label: "{{ secret.path | default('?') }}"
+
+    # A freshly installed k3s needs a while before its API answers and its node is Ready.
+    - name: Wait for the cluster to be ready
+      ansible.builtin.command: "{{ _kubectl }} wait --for=condition=Ready nodes --all --timeout=60s"
+      register: _secrets_nodes
+      until: _secrets_nodes.rc == 0
+      retries: 10
+      delay: 15
+      changed_when: false
+
+    - name: Create each secret
+      ansible.builtin.include_tasks: secret.yml
+      loop: "{{ _secrets }}"
+      loop_control:
+        loop_var: secret
+        label: "{{ secret.path }}"
