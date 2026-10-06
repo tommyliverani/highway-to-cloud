@@ -1,0 +1,7 @@
+# How Crossplane is installed in the clusters the platform creates (Helm chart delivered by Argo CD), and
+# where its building blocks live
+namespace: crossplane-system
+helm_repo_url: https://charts.crossplane.io/stable
+chart: crossplane
+chart_version: "2.4.2"
+building_blocks_path: building_blocks/crossplane

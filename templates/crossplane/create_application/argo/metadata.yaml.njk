@@ -1,0 +1,5 @@
+deploy: argo
+argo_application: {{ argo.root_application | dump }}
+argocd_namespace: {{ argo.install_namespace | dump }}
+kubeconfig: {{ (platform.k3s_kubeconfig_local_path ~ "/" ~ resource_id ~ ".yaml") | dump }}
+kubectl: {{ (platform.k3s_install_dir ~ "/kubectl") | dump }}

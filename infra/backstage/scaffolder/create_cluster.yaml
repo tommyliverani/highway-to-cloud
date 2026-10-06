@@ -4,7 +4,7 @@ kind: Template
 metadata:
   name: create-cluster
   title: Create cluster
-  description: Creates a k3s cluster
+  description: Creates a k3s cluster with Crossplane and Argo CD, ready to deliver the platform resources
 
 
 spec:

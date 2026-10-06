@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ (resource_id ~ "-crossplane-bb") | dump }}
+  namespace: {{ argo.install_namespace | dump }}
+spec:
+  project: {{ argo.project | dump }}
+  source:
+    repoURL: {{ argo.repo_url | dump }}
+    targetRevision: {{ argo.target_revision | dump }}
+    path: {{ crossplane.building_blocks_path | dump }}
+    directory:
+      recurse: true
+  # Building blocks are cluster-scoped (XRD, Composition, Provider, Function, ClusterProviderConfig).
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ crossplane.namespace | dump }}
+  # No automated sync: the deploy pipeline of this component syncs it.

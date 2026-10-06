@@ -1,11 +1,10 @@
 name: deploy-argo
 
-# Deploy module for "deploy: argo" components: Kubernetes manifests delivered by Argo CD, whatever tool
-# produced them (a Crossplane XR, or the Argo CD Application of a Crossplane instance). The actual deploy
-# is GitOps: the Argo CD Application declared in the component's metadata.yaml (argo_application) applies
-# the manifests once they are merged into main. This module only checks that every manifest is a valid
-# Kubernetes object and that the Application is declared, so a broken component blocks the merge into
-# main; the sync itself is manual for the demo (deploy.yaml lists the Applications to sync).
+# Deploy module for "deploy: argo" components: Kubernetes manifests (or a Helm chart) delivered by Argo CD,
+# whatever tool produced them (a Crossplane XR, the Argo CD Application of an instance, a chart). The actual
+# deploy is GitOps once merged into main, and the Applications are synced by the argo-sync job of deploy.yaml
+# (they track main). This module only checks that the component is valid, so a broken one blocks the merge
+# into main.
 on:
   workflow_call:
     inputs:
@@ -31,20 +30,26 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
-      - name: Validate manifests
+      - name: Validate component
         run: |
           [[ "$RESOURCE" =~ ^resources(/[A-Za-z0-9._-]+)+$ && "$RESOURCE" != *..* ]] || { echo "::error::Invalid resource '$RESOURCE'"; exit 1; }
-          found=0
-          while IFS= read -r -d '' f; do
-            found=1
-            yq -o=json '.' "$f" | jq -se 'all(.[]; .apiVersion and .kind)' > /dev/null || {
-              echo "::error::$f is not a valid Kubernetes manifest (apiVersion and kind are required)"
-              exit 1
-            }
-            echo "OK $f"
-          done < <(find "$RESOURCE" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
-                     ! -name metadata.yaml ! -name catalog-info.yaml ! -name variables.json -print0)
-          [ "$found" = 1 ] || { echo "::error::$RESOURCE contains no manifest"; exit 1; }
-          app=$(yq '.argo_application // ""' "$RESOURCE/metadata.yaml")
-          [ -n "$app" ] || { echo "::error::$RESOURCE/metadata.yaml has no argo_application"; exit 1; }
-          echo "$RESOURCE is delivered by the Argo CD Application '$app' (manual sync after the merge into main)"
+          meta="$RESOURCE/metadata.yaml"
+          apps=$(yq '[.argo_application] | flatten | .[] | select(. != null)' "$meta")
+          [ -n "$apps" ] || { echo "::error::$meta declares no argo_application"; exit 1; }
+          if [ -f "$RESOURCE/Chart.yaml" ]; then
+            yq -e '.apiVersion and .name' "$RESOURCE/Chart.yaml" > /dev/null || { echo "::error::$RESOURCE/Chart.yaml is not a valid Helm chart"; exit 1; }
+            echo "OK $RESOURCE is a Helm chart"
+          else
+            found=0
+            while IFS= read -r -d '' f; do
+              found=1
+              yq -o=json '.' "$f" | jq -se 'all(.[]; .apiVersion and .kind)' > /dev/null || {
+                echo "::error::$f is not a valid Kubernetes manifest (apiVersion and kind are required)"
+                exit 1
+              }
+              echo "OK $f"
+            done < <(find "$RESOURCE" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
+                       ! -name metadata.yaml ! -name catalog-info.yaml ! -name variables.json -print0)
+            [ "$found" = 1 ] || { echo "::error::$RESOURCE contains no manifest"; exit 1; }
+          fi
+          echo "$RESOURCE is delivered by the Argo CD Application(s): $(echo $apps)"

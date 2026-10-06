@@ -18,3 +18,10 @@
     dest: "{{ k3s_kubeconfig_local_path }}"
     flat: true
   when: "'_servers' in (group_names | join(' '))"
+
+# The kubeconfig holds cluster-admin credentials.
+- name: Restrict the local kubeconfig to its owner
+  ansible.builtin.file:
+    path: "{{ k3s_kubeconfig_local_path }}"
+    mode: "0600"
+  when: "'_servers' in (group_names | join(' '))"

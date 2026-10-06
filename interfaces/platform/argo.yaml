@@ -1,6 +1,16 @@
-# How the platform delivers resources with Argo CD (used by the Argo CD Application component)
+# How the platform uses Argo CD: how it delivers resources, and how it is installed in the clusters it creates
+
+# Delivery of resources (the Argo CD Applications of the components)
 repo_url: https://github.com/tommyliverani/highway-to-cloud.git
-root_application: argo-app          # app-of-apps created by infra/k8s/setup.sh, syncs resources/argo-apps
+root_application: argo-app          # app-of-apps, syncs root_application_path
+root_application_path: resources/argo-apps
 target_revision: main
 project: default
-destination_namespace: platform-resources
+destination_namespace: platform-resources   # where the delivered resources land
+
+# Installation in the clusters created by the platform (Helm)
+install_namespace: argocd           # where Argo CD runs and where its Applications live
+release: argocd
+helm_repo_url: https://argoproj.github.io/argo-helm
+chart: argo-cd
+chart_version: "10.9.6"

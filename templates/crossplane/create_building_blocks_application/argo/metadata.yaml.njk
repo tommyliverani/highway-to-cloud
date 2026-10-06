@@ -1,0 +1,9 @@
+deploy: argo
+# In order: the root Application creates this component's Application, which is then synced to install the
+# building blocks.
+argo_application:
+  - {{ argo.root_application | dump }}
+  - {{ (resource_id ~ "-crossplane-bb") | dump }}
+argocd_namespace: {{ argo.install_namespace | dump }}
+kubeconfig: {{ (platform.k3s_kubeconfig_local_path ~ "/" ~ resource_id ~ ".yaml") | dump }}
+kubectl: {{ (platform.k3s_install_dir ~ "/kubectl") | dump }}

@@ -1,0 +1,9 @@
+# Umbrella chart: Argo CD renders it from the repository, building the Crossplane dependency.
+apiVersion: v2
+name: crossplane-install
+description: {{ ("Crossplane in the cluster " ~ resource_id) | dump }}
+version: 0.1.0
+dependencies:
+  - name: {{ crossplane.chart | dump }}
+    version: {{ crossplane.chart_version | dump }}
+    repository: {{ crossplane.helm_repo_url | dump }}

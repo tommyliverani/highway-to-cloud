@@ -1,0 +1,46 @@
+name: deploy-kubectl
+
+# Deploy module for "deploy: kubectl" components: kubectl apply (server-side) of every manifest of the
+# component folder in the cluster named by its metadata.yaml (kubeconfig; kubectl, default: kubectl on the PATH).
+on:
+  workflow_call:
+    inputs:
+      resource:
+        description: 'Component folder, e.g. resources/kubernetes-cluster-x-argocd-apps'
+        required: true
+        type: string
+      ref:
+        description: 'Commit to deploy'
+        required: true
+        type: string
+
+jobs:
+  apply:
+    runs-on: self-hosted
+
+    env:
+      RESOURCE: ${{ inputs.resource }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Kubectl apply
+        run: |
+          [[ "$RESOURCE" =~ ^resources/[A-Za-z0-9._-]+$ ]] || { echo "::error::Invalid resource '$RESOURCE'"; exit 1; }
+          meta="$RESOURCE/metadata.yaml"
+          kubeconfig=$(yq '.kubeconfig // ""' "$meta")
+          kubectl_bin=$(yq '.kubectl // "kubectl"' "$meta")
+          [ -n "$kubeconfig" ] || { echo "::error::$meta has no kubeconfig"; exit 1; }
+          [[ "$kubeconfig" =~ ^[A-Za-z0-9._/+-]+$ && "$kubectl_bin" =~ ^[A-Za-z0-9._/+-]+$ ]] || { echo "::error::Invalid kubeconfig or kubectl in $meta"; exit 1; }
+          [ -f "$kubeconfig" ] || { echo "::error::kubeconfig $kubeconfig not found: is the cluster deployed?"; exit 1; }
+          command -v "$kubectl_bin" >/dev/null || { echo "::error::$kubectl_bin not found on the runner"; exit 1; }
+          found=0
+          while IFS= read -r -d '' f; do
+            found=1
+            "$kubectl_bin" --kubeconfig "$kubeconfig" apply --server-side --force-conflicts -f "$f"
+          done < <(find "$RESOURCE" -maxdepth 1 -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
+                     ! -name metadata.yaml ! -name catalog-info.yaml ! -name variables.json -print0 | sort -z)
+          [ "$found" = 1 ] || { echo "::error::$RESOURCE contains no manifest"; exit 1; }

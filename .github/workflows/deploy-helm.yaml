@@ -1,0 +1,48 @@
+name: deploy-helm
+
+# Deploy module for "deploy: helm" components: helm upgrade --install of one chart in the cluster named by the
+# component's metadata.yaml (kubeconfig, repo, chart, version, release, namespace). The Helm values are the
+# component's values.yaml, if present. The runner must provide helm and reach the cluster.
+on:
+  workflow_call:
+    inputs:
+      resource:
+        description: 'Component folder, e.g. resources/kubernetes-cluster-x-argocd'
+        required: true
+        type: string
+      ref:
+        description: 'Commit to deploy'
+        required: true
+        type: string
+
+jobs:
+  upgrade:
+    runs-on: self-hosted
+
+    env:
+      RESOURCE: ${{ inputs.resource }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Helm upgrade
+        run: |
+          [[ "$RESOURCE" =~ ^resources/[A-Za-z0-9._-]+$ ]] || { echo "::error::Invalid resource '$RESOURCE'"; exit 1; }
+          command -v helm >/dev/null || { echo "::error::helm is not installed on the runner"; exit 1; }
+          meta="$RESOURCE/metadata.yaml"
+          for key in kubeconfig repo chart version release namespace; do
+            value=$(yq ".$key // \"\"" "$meta")
+            [ -n "$value" ] || { echo "::error::$meta has no $key"; exit 1; }
+            [[ "$value" =~ ^[A-Za-z0-9._/:+-]+$ ]] || { echo "::error::$meta: invalid $key '$value'"; exit 1; }
+            printf -v "$key" '%s' "$value"
+          done
+          [ -f "$kubeconfig" ] || { echo "::error::kubeconfig $kubeconfig not found: is the cluster deployed?"; exit 1; }
+          values=()
+          [ -f "$RESOURCE/values.yaml" ] && values=(-f "$RESOURCE/values.yaml")
+          helm upgrade --install "$release" "$chart" \
+            --repo "$repo" --version "$version" \
+            --kubeconfig "$kubeconfig" --namespace "$namespace" --create-namespace \
+            --wait --timeout 10m "${values[@]}"

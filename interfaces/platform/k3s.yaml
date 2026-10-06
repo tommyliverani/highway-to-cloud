@@ -1,6 +1,7 @@
 k3s_release_version: "v1.31.1+k3s1"
 cluster_dns_ip: 127.0.1.1
-k3s_kubeconfig_local_path: home/tommy/Desktop/tommy/highway-to-cloud/infra/secrets
+# Absolute: a relative path would land in the runner workspace, which the next checkout cleans.
+k3s_kubeconfig_local_path: /home/tommy/Desktop/tommy/highway-to-cloud/infra/secrets
 # Not /usr/local/bin: k3s links k3s/kubectl/crictl/ctr there by default, and that list is hardcoded in
 # the xanmanning.k3s role (no per-binary opt-out) — it would silently try to replace the kubectl already
 # installed there for Kind. A dedicated directory keeps the two installations from colliding.
