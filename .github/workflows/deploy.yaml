@@ -82,19 +82,6 @@ jobs:
       ref: ${{ needs.deploy.outputs.sha }}
     secrets: inherit
 
-  argo:
-    needs: deploy
-    if: needs.deploy.outputs.argo != '[]'
-    strategy:
-      fail-fast: false
-      matrix:
-        resource: ${{ fromJSON(needs.deploy.outputs.argo) }}
-    uses: ./.github/workflows/deploy-argo.yaml
-    with:
-      resource: ${{ matrix.resource }}
-      ref: ${{ needs.deploy.outputs.sha }}
-    secrets: inherit
-
   ansible:
     needs: deploy
     if: needs.deploy.outputs.ansible != '[]'
@@ -137,7 +124,7 @@ jobs:
   # Runs only if no module failed (skipped modules are fine). Only the deployed commit is merged,
   # even if develop moved on meanwhile.
   merge-main:
-    needs: [deploy, terraform, argo, ansible, helm, kubectl]
+    needs: [deploy, terraform, ansible, helm, kubectl]
     if: ${{ !failure() && !cancelled() }}
     runs-on: self-hosted
     steps:
@@ -156,13 +143,14 @@ jobs:
           git merge --no-ff "$DEPLOYED_SHA" -m "chore: merge deployed resources from develop"
           git push origin main
 
-  # Argo CD Applications track main, so they can only be synced after merge-main. This job syncs, one by one,
+  # Deploy of the "argo" components. It is not a module like the others: the deploy is GitOps, and the Argo CD
+  # Applications track main, so they can only be synced after merge-main. This job syncs, one by one,
   # the Application(s) that deliver each deployed argo component: the ones named by its .idp.yaml
   # (argo_application, a name or an ordered list; the template computes them from the resource id with a naming
   # convention), those delivering other Applications (resources/argo-apps) first. The cluster comes from the
-  # metadata too (kubeconfig; kubectl and argocd_namespace are optional). Components without kubeconfig, like
+  # .idp.yaml too (kubeconfig; kubectl and argocd_namespace are optional). Components without kubeconfig, like
   # the local Kind cluster that the GitHub runner cannot reach, are listed to be synced by hand.
-  argo-sync:
+  argo:
     needs: [deploy, merge-main]
     if: needs.deploy.outputs.argo != '[]' && needs.merge-main.result == 'success'
     runs-on: self-hosted
@@ -204,7 +192,7 @@ jobs:
               sleep 5
             done
             before=$(k get application "$app" -o jsonpath='{.status.operationState.startedAt}')
-            k patch application "$app" --type merge -p '{"operation":{"initiatedBy":{"username":"argo-sync"},"sync":{}}}' > /dev/null
+            k patch application "$app" --type merge -p '{"operation":{"initiatedBy":{"username":"idp-deploy"},"sync":{}}}' > /dev/null
             for i in $(seq 1 60); do
               started=$(k get application "$app" -o jsonpath='{.status.operationState.startedAt}' || true)
               phase=$(k get application "$app" -o jsonpath='{.status.operationState.phase}' || true)

@@ -1,0 +1,5 @@
+# Initial password of the Argo CD "admin" user, set at bootstrap by the install component.
+# Argo CD wants a bcrypt hash, not the password. This repository is public, so the hash is visible
+# and the value below is a DEMO password ("admin"): never use it outside a local demo cluster.
+# New hash: python3 -c "import bcrypt; print(bcrypt.hashpw(b'<password>', bcrypt.gensalt(10, prefix=b'2a')).decode())"
+admin_password_bcrypt: "$2a$10$ioNDgXePqljsLnLV3gBajOst0SBeLCVoOGp9ZKVgESiPbo5neqRAS"

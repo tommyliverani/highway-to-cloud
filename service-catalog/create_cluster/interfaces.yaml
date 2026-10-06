@@ -4,3 +4,5 @@
   alias: argo
 - source: github.com/tommyliverani/highway-to-cloud//interfaces/platform/crossplane.yaml
   alias: crossplane
+- source: github.com/tommyliverani/highway-to-cloud//interfaces/security/argocd.yaml
+  alias: argo_security
