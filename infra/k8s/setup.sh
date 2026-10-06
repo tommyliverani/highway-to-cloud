@@ -161,7 +161,7 @@ spec:
     # resource folder (they are not Kubernetes objects to apply).
     directory:
       recurse: true
-      exclude: '{**/metadata.yaml,**/catalog-info.yaml,**/variables.json}'
+      exclude: '{**/.idp.yaml,**/catalog-info.yaml,**/variables.json}'
   destination:
     server: https://kubernetes.default.svc
     namespace: ${ARGOCD_NAMESPACE}

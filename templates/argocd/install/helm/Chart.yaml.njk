@@ -1,0 +1,9 @@
+# Umbrella chart: the deploy pipeline builds the Argo CD dependency and upgrades this chart.
+apiVersion: v2
+name: argocd-install
+description: {{ ("Argo CD in the cluster " ~ resource_id) | dump }}
+version: 0.1.0
+dependencies:
+  - name: {{ argo.chart | dump }}
+    version: {{ argo.chart_version | dump }}
+    repository: {{ argo.helm_repo_url | dump }}

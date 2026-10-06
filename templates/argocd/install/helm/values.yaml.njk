@@ -1,5 +1,14 @@
-configs:
-  repositories:
-    demo-git-repo:
-      type: git
-      url: {{ argo.repo_url | dump }}
+# Values of the Argo CD chart, under its dependency name.
+{{ argo.chart }}:
+  # The platform repository is public: registering it needs no credentials.
+  configs:
+    repositories:
+      demo-git-repo:
+        type: git
+        url: {{ argo.repo_url | dump }}
+  # Reachable on the host, like the port-forward of infra/k8s/setup.sh: https://localhost:{{ argo.ui_port }}
+  server:
+    service:
+      type: LoadBalancer
+      servicePortHttps: {{ argo.ui_port }}
+      servicePortHttp: {{ argo.ui_http_port }}

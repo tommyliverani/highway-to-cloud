@@ -1,8 +1,9 @@
 name: deploy-helm
 
-# Deploy module for "deploy: helm" components: helm upgrade --install of one chart in the cluster named by the
-# component's metadata.yaml (kubeconfig, repo, chart, version, release, namespace). The Helm values are the
-# component's values.yaml, if present. The runner must provide helm and reach the cluster.
+# Deploy module for "deploy: helm" components: the component folder is a Helm (umbrella) chart, and this
+# module builds its dependencies and runs helm upgrade --install of it in the cluster named by its .idp.yaml
+# (kubeconfig, release, namespace). The chart's own values.yaml is used. The runner must provide helm and
+# reach the cluster and the repositories of the dependencies.
 on:
   workflow_call:
     inputs:
@@ -32,17 +33,28 @@ jobs:
         run: |
           [[ "$RESOURCE" =~ ^resources/[A-Za-z0-9._-]+$ ]] || { echo "::error::Invalid resource '$RESOURCE'"; exit 1; }
           command -v helm >/dev/null || { echo "::error::helm is not installed on the runner"; exit 1; }
-          meta="$RESOURCE/metadata.yaml"
-          for key in kubeconfig repo chart version release namespace; do
+          [ -f "$RESOURCE/Chart.yaml" ] || { echo "::error::$RESOURCE is not a Helm chart (no Chart.yaml)"; exit 1; }
+          meta="$RESOURCE/.idp.yaml"
+          for key in kubeconfig release namespace; do
             value=$(yq ".$key // \"\"" "$meta")
             [ -n "$value" ] || { echo "::error::$meta has no $key"; exit 1; }
-            [[ "$value" =~ ^[A-Za-z0-9._/:+-]+$ ]] || { echo "::error::$meta: invalid $key '$value'"; exit 1; }
+            [[ "$value" =~ ^[A-Za-z0-9._/+-]+$ ]] || { echo "::error::$meta: invalid $key '$value'"; exit 1; }
             printf -v "$key" '%s' "$value"
           done
           [ -f "$kubeconfig" ] || { echo "::error::kubeconfig $kubeconfig not found: is the cluster deployed?"; exit 1; }
-          values=()
-          [ -f "$RESOURCE/values.yaml" ] && values=(-f "$RESOURCE/values.yaml")
-          helm upgrade --install "$release" "$chart" \
-            --repo "$repo" --version "$version" \
+
+          # Helm only builds dependencies whose repository it knows: use a Helm configuration of this job, so
+          # the repositories of the runner's user are left alone.
+          export HELM_REPOSITORY_CONFIG="$RUNNER_TEMP/helm/repositories.yaml" HELM_REPOSITORY_CACHE="$RUNNER_TEMP/helm/cache"
+          mkdir -p "$RUNNER_TEMP/helm"
+          i=0
+          while IFS= read -r url; do
+            [[ "$url" =~ ^https://[A-Za-z0-9._/:+-]+$ ]] || { echo "::error::Unsupported dependency repository '$url' (https only)"; exit 1; }
+            helm repo add "idp-$i" "$url" --force-update
+            i=$((i + 1))
+          done < <(yq '.dependencies[] | .repository | select(. != null)' "$RESOURCE/Chart.yaml" | sort -u)
+
+          helm dependency build "$RESOURCE"
+          helm upgrade --install "$release" "$RESOURCE" \
             --kubeconfig "$kubeconfig" --namespace "$namespace" --create-namespace \
-            --wait --timeout 10m "${values[@]}"
+            --wait --timeout 10m

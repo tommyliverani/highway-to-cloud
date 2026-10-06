@@ -34,7 +34,7 @@ jobs:
           ref: develop
           fetch-depth: 0
 
-      # A component is the nearest folder under resources/ with a metadata.yaml, at any depth (e.g.
+      # A component is the nearest folder under resources/ with a .idp.yaml, at any depth (e.g.
       # resources/s3-bucket-x/ or resources/argo-apps/s3-bucket-x/); its "deploy" key picks the pipeline.
       - name: Group components by deploy pipeline
         id: find
@@ -44,17 +44,17 @@ jobs:
           components=""
           for file in $(git diff --name-only origin/main HEAD -- resources/); do
             dir=$(dirname "$file")
-            while [ "$dir" != "resources" ] && [ "$dir" != "." ] && [ ! -f "$dir/metadata.yaml" ]; do
+            while [ "$dir" != "resources" ] && [ "$dir" != "." ] && [ ! -f "$dir/.idp.yaml" ]; do
               dir=$(dirname "$dir")
             done
-            if [ -f "$dir/metadata.yaml" ]; then
+            if [ -f "$dir/.idp.yaml" ]; then
               components="$components $dir"
             else
               echo "Skip $file: removed or not part of a component (no destroy in this demo)"
             fi
           done
           for dir in $(tr ' ' '\n' <<< "$components" | sort -u); do
-            deploy=$(yq '.deploy' "$dir/metadata.yaml")
+            deploy=$(yq '.deploy' "$dir/.idp.yaml")
             if ! echo " $supported " | grep -q " $deploy "; then
               echo "::error::$dir uses deploy '$deploy', which has no deploy module (deploy-$deploy.yaml)"
               exit 1
@@ -157,7 +157,7 @@ jobs:
           git push origin main
 
   # Argo CD Applications track main, so they can only be synced after merge-main. This job syncs, one by one,
-  # the Application(s) that deliver each deployed argo component: the ones named by its metadata.yaml
+  # the Application(s) that deliver each deployed argo component: the ones named by its .idp.yaml
   # (argo_application, a name or an ordered list; the template computes them from the resource id with a naming
   # convention), those delivering other Applications (resources/argo-apps) first. The cluster comes from the
   # metadata too (kubeconfig; kubectl and argocd_namespace are optional). Components without kubeconfig, like
@@ -181,7 +181,7 @@ jobs:
           # "<order> <component> <application>"; sort -s keeps the order of the Applications within a component.
           plan=$(jq -r '.[]' <<< "$COMPONENTS" | while read -r dir; do
             order=1; [[ "$dir" == resources/argo-apps/* ]] && order=0
-            for app in $(yq '[.argo_application] | flatten | .[] | select(. != null)' "$dir/metadata.yaml"); do
+            for app in $(yq '[.argo_application] | flatten | .[] | select(. != null)' "$dir/.idp.yaml"); do
               echo "$order $dir $app"
             done
           done | sort -s -k1,1n)
@@ -223,7 +223,7 @@ jobs:
           declare -A synced
           while read -r order dir app; do
             [ -n "$app" ] || continue
-            meta="$dir/metadata.yaml"
+            meta="$dir/.idp.yaml"
             kubeconfig=$(yq '.kubeconfig // ""' "$meta")
             if [ -z "$kubeconfig" ]; then manual="$manual $app"; continue; fi
             kubectl_bin=$(yq '.kubectl // "kubectl"' "$meta")

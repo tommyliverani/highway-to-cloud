@@ -9,9 +9,9 @@ spec:
     repoURL: {{ argo.repo_url | dump }}
     targetRevision: {{ argo.target_revision | dump }}
     path: {{ ("resources/" + resource_id) | dump }}
-    # metadata.yaml is written by the platform process, not a Kubernetes object
+    # .idp.yaml is written by the platform process, not a Kubernetes object
     directory:
-      exclude: metadata.yaml
+      exclude: .idp.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ argo.destination_namespace | dump }}

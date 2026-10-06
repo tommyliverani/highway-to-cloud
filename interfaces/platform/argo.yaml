@@ -8,9 +8,14 @@ target_revision: main
 project: default
 destination_namespace: platform-resources   # where the delivered resources land
 
-# Installation in the clusters created by the platform (Helm)
+# Installation in the clusters created by the platform (Helm umbrella chart)
 install_namespace: argocd           # where Argo CD runs and where its Applications live
 release: argocd
 helm_repo_url: https://argoproj.github.io/argo-helm
 chart: argo-cd
 chart_version: "10.9.6"
+
+# The UI is exposed on the host (k3s servicelb) as the port-forward of infra/k8s/setup.sh did:
+# https://localhost:8080, self-signed certificate. Not 80/443: the Traefik of k3s takes them.
+ui_port: 8080
+ui_http_port: 8081                  # the chart's service always has an http port too

@@ -1,7 +1,4 @@
 deploy: helm
 kubeconfig: {{ (platform.k3s_kubeconfig_local_path ~ "/" ~ resource_id ~ ".yaml") | dump }}
-repo: {{ argo.helm_repo_url | dump }}
-chart: {{ argo.chart | dump }}
-version: {{ argo.chart_version | dump }}
 release: {{ argo.release | dump }}
 namespace: {{ argo.install_namespace | dump }}

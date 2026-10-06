@@ -1,7 +1,7 @@
 name: deploy-kubectl
 
 # Deploy module for "deploy: kubectl" components: kubectl apply (server-side) of every manifest of the
-# component folder in the cluster named by its metadata.yaml (kubeconfig; kubectl, default: kubectl on the PATH).
+# component folder in the cluster named by its .idp.yaml (kubeconfig; kubectl, default: kubectl on the PATH).
 on:
   workflow_call:
     inputs:
@@ -30,7 +30,7 @@ jobs:
       - name: Kubectl apply
         run: |
           [[ "$RESOURCE" =~ ^resources/[A-Za-z0-9._-]+$ ]] || { echo "::error::Invalid resource '$RESOURCE'"; exit 1; }
-          meta="$RESOURCE/metadata.yaml"
+          meta="$RESOURCE/.idp.yaml"
           kubeconfig=$(yq '.kubeconfig // ""' "$meta")
           kubectl_bin=$(yq '.kubectl // "kubectl"' "$meta")
           [ -n "$kubeconfig" ] || { echo "::error::$meta has no kubeconfig"; exit 1; }
@@ -42,5 +42,5 @@ jobs:
             found=1
             "$kubectl_bin" --kubeconfig "$kubeconfig" apply --server-side --force-conflicts -f "$f"
           done < <(find "$RESOURCE" -maxdepth 1 -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
-                     ! -name metadata.yaml ! -name catalog-info.yaml ! -name variables.json -print0 | sort -z)
+                     ! -name .idp.yaml ! -name catalog-info.yaml ! -name variables.json -print0 | sort -z)
           [ "$found" = 1 ] || { echo "::error::$RESOURCE contains no manifest"; exit 1; }

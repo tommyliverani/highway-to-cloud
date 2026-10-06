@@ -33,7 +33,7 @@ jobs:
       - name: Validate component
         run: |
           [[ "$RESOURCE" =~ ^resources(/[A-Za-z0-9._-]+)+$ && "$RESOURCE" != *..* ]] || { echo "::error::Invalid resource '$RESOURCE'"; exit 1; }
-          meta="$RESOURCE/metadata.yaml"
+          meta="$RESOURCE/.idp.yaml"
           apps=$(yq '[.argo_application] | flatten | .[] | select(. != null)' "$meta")
           [ -n "$apps" ] || { echo "::error::$meta declares no argo_application"; exit 1; }
           if [ -f "$RESOURCE/Chart.yaml" ]; then
@@ -49,7 +49,7 @@ jobs:
               }
               echo "OK $f"
             done < <(find "$RESOURCE" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
-                       ! -name metadata.yaml ! -name catalog-info.yaml ! -name variables.json -print0)
+                       ! -name .idp.yaml ! -name catalog-info.yaml ! -name variables.json -print0)
             [ "$found" = 1 ] || { echo "::error::$RESOURCE contains no manifest"; exit 1; }
           fi
           echo "$RESOURCE is delivered by the Argo CD Application(s): $(echo $apps)"

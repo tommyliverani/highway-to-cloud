@@ -9,9 +9,9 @@ spec:
     repoURL: "https://github.com/tommyliverani/highway-to-cloud.git"
     targetRevision: "main"
     path: "resources/s3-bucket-storage-50"
-    # metadata.yaml is written by the platform process, not a Kubernetes object
+    # .idp.yaml is written by the platform process, not a Kubernetes object
     directory:
-      exclude: metadata.yaml
+      exclude: .idp.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: "platform-resources"
