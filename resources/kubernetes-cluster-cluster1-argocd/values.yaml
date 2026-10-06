@@ -1,5 +1,0 @@
-configs:
-  repositories:
-    demo-git-repo:
-      type: git
-      url: "https://github.com/tommyliverani/highway-to-cloud.git"

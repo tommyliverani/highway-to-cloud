@@ -1,7 +1,0 @@
-deploy: helm
-kubeconfig: "/home/tommy/Desktop/tommy/highway-to-cloud/infra/secrets/kubernetes-cluster-cluster1.yaml"
-repo: "https://argoproj.github.io/argo-helm"
-chart: "argo-cd"
-version: "10.9.6"
-release: "argocd"
-namespace: "argocd"
