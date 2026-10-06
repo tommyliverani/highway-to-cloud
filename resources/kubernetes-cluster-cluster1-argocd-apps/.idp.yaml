@@ -1,0 +1,3 @@
+deploy: kubectl
+kubeconfig: "/home/tommy/Desktop/tommy/highway-to-cloud/infra/secrets/kubernetes-cluster-cluster1.yaml"
+kubectl: "/usr/local/k3s/bin/kubectl"
