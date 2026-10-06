@@ -1,0 +1,6 @@
+- source: github.com/tommyliverani/highway-to-cloud//interfaces/security/ec2.yaml
+  alias: security
+- source: github.com/tommyliverani/highway-to-cloud//interfaces/platform/ec2.yaml
+  alias: platform
+- source: github.com/tommyliverani/highway-to-cloud//interfaces/platform/terraform.yaml
+  alias: tf_backend

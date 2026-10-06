@@ -1,0 +1,17 @@
+{# Entity of the instance in the resource catalog: the user-facing name; highwaytocloud.io/* annotations are set by the process #}
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: {{ parameters.name | kebabCase | dump }}
+  title: {{ (parameters.title or parameters.name) | dump }}
+  {% if parameters.description %}
+  description: {{ parameters.description | dump }}
+  {% endif %}
+  tags:
+    - aws
+    - ec2
+    - virtual-machine
+spec:
+  type: virtual-machine
+  owner: guest
+  lifecycle: production

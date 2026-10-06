@@ -1,0 +1,78 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+
+metadata:
+  name: create-vm
+  title: Create virtual machine
+  description: Creates a virtual machine
+
+
+spec:
+  owner: team-platform
+  type: infrastructure
+
+  parameters:
+    - title: Virtual machine configuration
+      description: Virtual machine configuration
+      required:
+        - name
+        - size
+      properties:
+
+        name:
+          title: Virtual machine name
+          type: string
+          description: Unique name of the virtual machine to create
+          pattern: '^[a-z][a-z0-9-]{1,48}[a-z0-9]$'
+          ui:help: '3-50 characters: lowercase letters, numbers and hyphens; must start with a letter and end with a letter or number.'
+          ui:autofocus: true
+
+        size:
+          title: Size
+          type: string
+          description: Computing capacity of the virtual machine
+          default: small
+          enum:
+            - small
+            - medium
+            - large
+          enumNames:
+            - Small (2 vCPU, 1 GiB)
+            - Medium (2 vCPU, 2 GiB)
+            - Large (2 vCPU, 4 GiB)
+
+        title:
+          title: Title
+          type: string
+          description: Display name of the resource in the Backstage catalog
+
+        description:
+          title: Description
+          type: string
+          description: Short description of the resource
+
+  steps:
+
+    - id: run-template-workflow
+      name: Run template workflow
+      action: github:actions:dispatch
+
+      input:
+        repoUrl: github.com?owner=tommyliverani&repo=highway-to-cloud
+        workflowId: template.yaml
+        branchOrTagName: develop
+
+        workflowInputs:
+
+          service_id: create_vm
+          parameters: ${{ parameters | dump }}
+
+    - id: log-workflow-link
+      name: Print GitHub Actions link
+
+      action: debug:log
+
+      input:
+        message: >-
+          GitHub Actions workflow triggered:
+          https://github.com/tommyliverani/highway-to-cloud/actions/workflows/template.yaml

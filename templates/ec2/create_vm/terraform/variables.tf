@@ -4,13 +4,13 @@ variable "name" {
 }
 
 variable "ami" {
-  description = "AMI ID to use for the instance. If null, ami_ssm_parameter is resolved instead."
+  description = "(Optional) AMI ID. If null, ami_ssm_parameter is resolved."
   type        = string
   default     = null
 }
 
 variable "ami_ssm_parameter" {
-  description = "Public SSM parameter holding the AMI ID, used when ami is null (follows the latest image)."
+  description = "Public SSM parameter holding the AMI ID, used when ami is null."
   type        = string
   default     = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 }
@@ -22,13 +22,13 @@ variable "instance_type" {
 }
 
 variable "subnet_id" {
-  description = "Subnet of the instance. If null, a subnet of the default VPC."
+  description = "(Optional) Subnet of the instance. If null, a subnet of the default VPC."
   type        = string
   default     = null
 }
 
 variable "vpc_security_group_ids" {
-  description = "Security groups of the instance. If empty, the default security group of the VPC."
+  description = "(Optional) Security groups of the instance. If empty, the default one of the VPC."
   type        = list(string)
   default     = []
 }
@@ -40,29 +40,41 @@ variable "root_volume_size" {
 }
 
 variable "root_volume_encrypted" {
-  description = "Encrypt the root volume (with the default EBS key of the account)."
+  description = "Encrypt the root volume."
   type        = bool
   default     = true
 }
 
 variable "imds_v2_required" {
-  description = "Require IMDSv2 (session tokens) to read the instance metadata."
+  description = "Require IMDSv2 to read the instance metadata."
   type        = bool
   default     = true
 }
 
 variable "tags" {
-  description = "Additional tags of the instance."
+  description = "(Optional) Additional tags of the instance."
   type        = map(string)
   default     = {}
 }
 
 variable "inline_policy_statements" {
-  description = "Lista di statement IAM da includere nella policy inline del ruolo EC2."
+  description = "IAM statements of the inline policy of the instance role."
   type = list(object({
     Effect   = string
     Action   = list(string)
     Resource = list(string)
   }))
   default = []
+}
+
+variable "account_id" {
+  description = "(Optional) The AWS account ID."
+  type        = string
+  default     = ""
+}
+
+variable "region" {
+  description = "(Optional) The AWS region."
+  type        = string
+  default     = "us-east-1"
 }

@@ -1,0 +1,3 @@
+# What the security office requires of the virtual machines
+root_volume_encrypted: true
+imds_v2_required: true   # instance metadata only through session tokens (mitigates SSRF credential theft)
