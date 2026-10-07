@@ -19,5 +19,7 @@
     "bucket": "tf-state-bucket-311618538285-us-east-1-an",
     "region": "us-east-1",
     "key": "resources/s3-bucket-bucket2/terraform.tfstate"
-  }
+  },
+  "retention_days": 365,
+  "retention_locked": false
 }
