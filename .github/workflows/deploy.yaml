@@ -1,9 +1,9 @@
 name: deploy
 
 # Generic deploy pipeline: finds the components that differ between develop and main (not deployed yet),
-# deploys each one with the module of its deploy pipeline (deploy-<deploy>.yaml), merges the deployed
-# develop commit into main, then lists the Argo CD Applications to sync by hand. Runs when a templater PR
-# is merged into develop.
+# deploys each one with the module of its deploy pipeline (deploy-<deploy>.yaml, or the argo job), then
+# merges the deployed develop commit into main if nothing failed. Runs when a templater PR is merged into
+# develop.
 on:
   push:
     branches: [develop]
@@ -124,7 +124,7 @@ jobs:
   # Runs only if no module failed (skipped modules are fine). Only the deployed commit is merged,
   # even if develop moved on meanwhile.
   merge-main:
-    needs: [deploy, terraform, ansible, helm, kubectl]
+    needs: [deploy, terraform, ansible, helm, kubectl, argo]
     if: ${{ !failure() && !cancelled() }}
     runs-on: self-hosted
     steps:
@@ -143,16 +143,17 @@ jobs:
           git merge --no-ff "$DEPLOYED_SHA" -m "chore: merge deployed resources from develop"
           git push origin main
 
-  # Deploy of the "argo" components. It is not a module like the others: the deploy is GitOps, and the Argo CD
-  # Applications track main, so they can only be synced after merge-main. This job syncs, one by one,
+  # Deploy of the "argo" components. The Argo CD Applications track develop (targetRevision), so like the other
+  # pipelines this job deploys before merge-main, which waits for it. It is one job and not a matrix of
+  # components because the order matters: this job syncs, one by one,
   # the Application(s) that deliver each deployed argo component: the ones named by its .idp.yaml
   # (argo_application, a name or an ordered list; the template computes them from the resource id with a naming
   # convention), those delivering other Applications (resources/argo-apps) first. The cluster comes from the
   # .idp.yaml too (kubeconfig; kubectl and argocd_namespace are optional). Components without kubeconfig, like
   # the local Kind cluster that the GitHub runner cannot reach, are listed to be synced by hand.
   argo:
-    needs: [deploy, merge-main]
-    if: needs.deploy.outputs.argo != '[]' && needs.merge-main.result == 'success'
+    needs: deploy
+    if: needs.deploy.outputs.argo != '[]'
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -185,7 +186,7 @@ jobs:
               [ "$i" = 36 ] && { echo "::error::Application $app does not exist"; return 1; }
               sleep 5
             done
-            # Hard refresh first: Argo CD would otherwise sync the revision of main it resolved at its last refresh.
+            # Hard refresh first: Argo CD would otherwise sync the revision of develop it resolved at its last refresh.
             k annotate application "$app" argocd.argoproj.io/refresh=hard --overwrite > /dev/null
             for i in $(seq 1 12); do
               [ -z "$(k get application "$app" -o jsonpath='{.metadata.annotations.argocd\.argoproj\.io/refresh}' || true)" ] && break
@@ -231,7 +232,7 @@ jobs:
             echo "Applications to sync by hand, in order:"; echo "$apps"
             {
               echo "## Argo CD: manual sync required"
-              echo "The resources are merged into \`main\`. Sync these Applications in this order (Argo CD UI → Sync, or CLI):"
+              echo "The components are on \`develop\` (merged into \`main\` without waiting for them). Sync these Applications in this order (Argo CD UI → Sync, or CLI):"
               echo '```bash'
               for app in $apps; do echo "argocd app sync $app"; done
               echo '```'

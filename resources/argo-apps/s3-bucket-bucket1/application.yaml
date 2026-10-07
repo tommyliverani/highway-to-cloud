@@ -7,7 +7,7 @@ spec:
   project: "default"
   source:
     repoURL: "https://github.com/tommyliverani/highway-to-cloud.git"
-    targetRevision: "main"
+    targetRevision: "develop"
     path: "resources/s3-bucket-bucket1"
     # .idp.yaml is written by the platform process, not a Kubernetes object
     directory:

@@ -9,7 +9,7 @@ spec:
   # that component's `resource` in the recipe of service-info.yaml.
   source:
     repoURL: "https://github.com/tommyliverani/highway-to-cloud.git"
-    targetRevision: "main"
+    targetRevision: "develop"
     path: "resources/kubernetes-cluster-cluster1-crossplane"
   destination:
     server: https://kubernetes.default.svc

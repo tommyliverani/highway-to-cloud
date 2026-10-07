@@ -1,3 +1,6 @@
 deploy: argo
-{# The instance's Application is applied by the root app-of-apps #}
+{# The instance's Application is applied by the root app-of-apps, in the delivery cluster of the platform #}
 argo_application: {{ argo.root_application | dump }}
+argocd_namespace: {{ argo.install_namespace | dump }}
+kubeconfig: {{ argo.delivery_kubeconfig | dump }}
+kubectl: {{ argo.delivery_kubectl | dump }}

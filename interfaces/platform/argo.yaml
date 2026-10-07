@@ -4,9 +4,13 @@
 repo_url: https://github.com/tommyliverani/highway-to-cloud.git
 root_application: argo-app          # app-of-apps, syncs root_application_path
 root_application_path: resources/argo-apps
-target_revision: main
+target_revision: develop    # the deploy pipeline syncs what it deploys, before develop is merged into main
 project: default
 destination_namespace: platform-resources   # where the delivered resources land
+
+# Cluster whose Argo CD delivers the resources: the deploy pipeline syncs their Applications there
+delivery_kubeconfig: /home/tommy/Desktop/tommy/highway-to-cloud/infra/secrets/kubernetes-cluster-cluster1.yaml
+delivery_kubectl: /usr/local/k3s/bin/kubectl
 
 # Installation in the clusters created by the platform (Helm umbrella chart)
 install_namespace: argocd           # where Argo CD runs and where its Applications live

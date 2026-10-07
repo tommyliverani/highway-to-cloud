@@ -7,7 +7,7 @@ spec:
   project: "default"
   source:
     repoURL: "https://github.com/tommyliverani/highway-to-cloud.git"
-    targetRevision: "main"
+    targetRevision: "develop"
     path: "resources/argo-apps"
     # Every manifest under the path, except the files the platform process writes in each resource folder
     # (they are not Kubernetes objects to apply).

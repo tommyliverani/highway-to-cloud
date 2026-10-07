@@ -1,3 +1,7 @@
 deploy: argo
-{# The XR is applied by the instance's own Argo CD Application (created by the second component) #}
+{# The XR is applied by the instance's own Argo CD Application (created by the second component), in the
+   delivery cluster of the platform #}
 argo_application: {{ resource_id | dump }}
+argocd_namespace: {{ argo.install_namespace | dump }}
+kubeconfig: {{ argo.delivery_kubeconfig | dump }}
+kubectl: {{ argo.delivery_kubectl | dump }}

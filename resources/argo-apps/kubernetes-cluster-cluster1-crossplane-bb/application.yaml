@@ -7,7 +7,7 @@ spec:
   project: "default"
   source:
     repoURL: "https://github.com/tommyliverani/highway-to-cloud.git"
-    targetRevision: "main"
+    targetRevision: "develop"
     path: "building_blocks/crossplane"
     directory:
       recurse: true
