@@ -1,10 +1,11 @@
 # Secrets created in the clusters the platform creates, from files on the machine that runs the deploy.
 # Only the path is here, never the content (this repository is public). Each item: path (absolute),
-# namespace (created if missing) and, optionally, name (default: the file name). Empty: no secret.
-#
-# The credentials read by the Crossplane ClusterProviderConfig (building_blocks/crossplane/provider_config)
-# are the secret "aws-credentials", key "credentials", in the namespace "crossplane-system", e.g.:
-#   - path: /home/tommy/.aws/credentials
-#     namespace: crossplane-system
-#     name: aws-credentials
-secrets: []
+# namespace (created if missing) and, optionally, name (default: the file name). The key inside the
+# secret is always the file name.
+secrets:
+  # AWS credentials of Crossplane: the ClusterProviderConfig (building_blocks/crossplane/provider_config)
+  # reads the secret "aws-credentials", key "credentials", in "crossplane-system". The file is an AWS
+  # credentials file ([default] with aws_access_key_id and aws_secret_access_key), mode 0600.
+  - path: /home/tommy/.aws/crossplane/credentials
+    namespace: crossplane-system
+    name: aws-credentials

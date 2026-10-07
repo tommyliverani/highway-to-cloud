@@ -1,9 +1,0 @@
-# Umbrella chart: Argo CD renders it from the repository, building the Crossplane dependency.
-apiVersion: v2
-name: crossplane-install
-description: "Crossplane in the cluster kubernetes-cluster-cluster1"
-version: 0.1.0
-dependencies:
-  - name: "crossplane"
-    version: "2.4.2"
-    repository: "https://charts.crossplane.io/stable"
