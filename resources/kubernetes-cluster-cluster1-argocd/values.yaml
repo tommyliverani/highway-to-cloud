@@ -1,0 +1,18 @@
+# Values of the Argo CD chart, under its dependency name.
+argo-cd:
+  configs:
+    # The platform repository is public: registering it needs no credentials.
+    repositories:
+      demo-git-repo:
+        type: git
+        url: "https://github.com/tommyliverani/highway-to-cloud.git"
+    # Initial password of "admin" (bcrypt hash, from the security office's interface): set at bootstrap,
+    # so the chart does not leave it to the generated argocd-initial-admin-secret.
+    secret:
+      argocdServerAdminPassword: "$2a$10$ioNDgXePqljsLnLV3gBajOst0SBeLCVoOGp9ZKVgESiPbo5neqRAS"
+  # Reachable on the host, like the port-forward of infra/k8s/setup.sh: https://localhost:8080
+  server:
+    service:
+      type: LoadBalancer
+      servicePortHttps: 8080
+      servicePortHttp: 8081
