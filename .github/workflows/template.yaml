@@ -292,10 +292,10 @@ jobs:
 
           // Data files (.json/.yaml/.yml) are parsed as YAML (JSON is a subset), so broken output fails here
           // and .json targets are always valid JSON even if the template is written in YAML syntax.
-          // With "base" (the existing content, for modification services) the output is merged onto it
+          // With "existing" (the current content, for modification services) the output is merged onto it
           // instead of replacing it. Switching format (e.g. variables.yaml -> variables.json) removes the
           // stale sibling.
-          function writeRendered(dest, rendered, source, base) {
+          function writeRendered(dest, rendered, source, existing) {
             const ext = path.extname(dest);
             let content = rendered;
             if (DATA_EXTENSIONS.includes(ext)) {
@@ -305,8 +305,8 @@ jobs:
               } catch (e) {
                 fail(`${source} does not render valid YAML/JSON: ${e.message}`);
               }
-              if (base !== undefined) {
-                data = mergePatch(base, data ?? {});
+              if (existing !== undefined) {
+                data = mergePatch(existing, data ?? {});
                 content = ext === ".json" ? `${JSON.stringify(data, null, 2)}\n` : yaml.dump(data, { lineWidth: -1 });
               } else {
                 content = ext === ".json" ? `${JSON.stringify(data ?? {}, null, 2)}\n` : removeBlankLines(rendered);
@@ -380,8 +380,8 @@ jobs:
                   const old = r.old_values[rel];
                   if (old) context.old_values = old;
                   const dest = path.join(resourceDir, renderedName(rel));
-                  const base = instance.create ? undefined : old;
-                  writeRendered(dest, env.renderString(fs.readFileSync(src, "utf8"), context), rel, base);
+                  const existing = instance.create ? undefined : old;
+                  writeRendered(dest, env.renderString(fs.readFileSync(src, "utf8"), context), rel, existing);
                 } else {
                   const dest = path.join(resourceDir, rel);
                   fs.mkdirSync(path.dirname(dest), { recursive: true });

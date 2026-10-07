@@ -2,20 +2,20 @@
 name: {{ parameters.name | dump }}
 
 {# Platform #}
-subscription_id: {{ platform.subscription_id | dump }}
-location: {{ platform.location | dump }}
-resource_group_name: {{ platform.resource_group_name | dump }}
-name_prefix: {{ platform.name_prefix | dump }}
-replication_type: {{ platform.replication_type | dump }}
-access_tier: {{ platform.access_tier | dump }}
-versioning_enabled: {{ platform.versioning_enabled | dump }}
-soft_delete_retention_days: {{ platform.soft_delete_retention_days | dump }}
-tags: {{ (platform.tags or {}) | dump }}
+subscription_id: {{ azure_platform.subscription_id | dump }}
+location: {{ azure_platform.location | dump }}
+resource_group_name: {{ azure_platform.resource_group_name | dump }}
+name_prefix: {{ azure_platform.name_prefix | dump }}
+replication_type: {{ azure_platform.replication_type | dump }}
+access_tier: {{ azure_platform.access_tier | dump }}
+versioning_enabled: {{ azure_platform.versioning_enabled | dump }}
+soft_delete_retention_days: {{ azure_platform.soft_delete_retention_days | dump }}
+tags: {{ (azure_platform.tags or {}) | dump }}
 
 {# Security #}
-min_tls_version: {{ security.min_tls_version | dump }}
-public_access_allowed: {{ security.public_access_allowed | dump }}
-customer_managed_key: {{ security.customer_managed_key | dump }}
+min_tls_version: {{ azure_security.min_tls_version | dump }}
+public_access_allowed: {{ azure_security.public_access_allowed | dump }}
+customer_managed_key: {{ azure_security.customer_managed_key | dump }}
 
 {# Terraform backend: passed to terraform init with -backend-config, not as a variable #}
 backend:

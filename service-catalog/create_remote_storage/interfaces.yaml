@@ -6,3 +6,7 @@
   alias: tf_backend
 - source: github.com/tommyliverani/highway-to-cloud//interfaces/platform/argo.yaml
   alias: argo
+- source: github.com/tommyliverani/highway-to-cloud//interfaces/security/azure_storage.yaml
+  alias: azure_security
+- source: github.com/tommyliverani/highway-to-cloud//interfaces/platform/azure_storage.yaml
+  alias: azure_platform
