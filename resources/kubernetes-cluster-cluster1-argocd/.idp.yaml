@@ -1,0 +1,4 @@
+deploy: helm
+kubeconfig: "/home/tommy/Desktop/tommy/highway-to-cloud/infra/secrets/kubernetes-cluster-cluster1.yaml"
+release: "argocd"
+namespace: "argocd"
