@@ -7,3 +7,7 @@ public_access_allowed: false
 #   key_vault_key_id: https://<vault>.vault.azure.net/keys/<key>
 #   user_assigned_identity_id: /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/<id>
 customer_managed_key: null
+
+# Storage retention: a locked policy can only be extended, never shortened or removed (like S3 Object Lock
+# COMPLIANCE); unlocked is the equivalent of GOVERNANCE, the one used on AWS (interfaces/security/s3.yaml).
+retention_locked: false

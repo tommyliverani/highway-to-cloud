@@ -24,4 +24,7 @@ module "storage" {
   min_tls_version       = var.min_tls_version
   public_access_allowed = var.public_access_allowed
   customer_managed_key  = var.customer_managed_key
+
+  retention_days   = var.retention_days
+  retention_locked = var.retention_locked
 }

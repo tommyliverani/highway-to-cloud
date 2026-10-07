@@ -74,6 +74,18 @@ variable "customer_managed_key" {
   default = null
 }
 
+variable "retention_days" {
+  description = "Days every blob of the container is kept immutable (WORM, time-based retention policy). 0 = no retention."
+  type        = number
+  default     = 0
+}
+
+variable "retention_locked" {
+  description = "Lock the retention policy: it can then only be extended, never shortened or removed (like S3 Object Lock COMPLIANCE; unlocked is like GOVERNANCE)."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags of the storage account."
   type        = map(string)

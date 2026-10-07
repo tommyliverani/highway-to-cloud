@@ -1,2 +1,4 @@
 - alias: security
   source: github.com/tommyliverani/highway-to-cloud//interfaces/security/s3.yaml
+- alias: azure_security
+  source: github.com/tommyliverani/highway-to-cloud//interfaces/security/azure_storage.yaml

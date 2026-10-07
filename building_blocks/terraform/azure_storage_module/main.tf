@@ -64,3 +64,13 @@ resource "azurerm_storage_container" "this" {
   storage_account_id    = azurerm_storage_account.this.id
   container_access_type = "private"
 }
+
+# Storage retention (the Azure equivalent of S3 Object Lock): blobs cannot be modified or deleted for
+# retention_days after they are written.
+resource "azurerm_storage_container_immutability_policy" "this" {
+  count = var.retention_days > 0 ? 1 : 0
+
+  storage_container_resource_manager_id = azurerm_storage_container.this.id
+  immutability_period_in_days           = var.retention_days
+  locked                                = var.retention_locked
+}

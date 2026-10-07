@@ -65,6 +65,18 @@ variable "public_access_allowed" {
   type        = bool
 }
 
+variable "retention_days" {
+  description = "Days blobs are kept immutable (0 = no retention). Set by enable_storage_retention."
+  type        = number
+  default     = 0
+}
+
+variable "retention_locked" {
+  description = "Lock the retention policy (it can then only be extended). Set by enable_storage_retention."
+  type        = bool
+  default     = false
+}
+
 variable "customer_managed_key" {
   description = "(Optional) Key Vault key and user-assigned identity to encrypt with. If null, Microsoft-managed keys."
   type = object({

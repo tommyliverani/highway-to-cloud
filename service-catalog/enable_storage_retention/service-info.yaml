@@ -1,9 +1,9 @@
 create: false
 resourceId: s3-bucket-{{ parameters.name }}
 plans:
-  terraform:
-    - template: github.com/tommyliverani/highway-to-cloud//templates/s3/enable_storage_retention/terraform
-      resource: github.com/tommyliverani/highway-to-cloud//resources/s3-bucket-{{ parameters.name }}
-  crossplane:
+  storage-aws:
     - template: github.com/tommyliverani/highway-to-cloud//templates/s3/enable_storage_retention/crossplane
+      resource: github.com/tommyliverani/highway-to-cloud//resources/s3-bucket-{{ parameters.name }}
+  storage-azure:
+    - template: github.com/tommyliverani/highway-to-cloud//templates/azure_storage/enable_storage_retention/terraform
       resource: github.com/tommyliverani/highway-to-cloud//resources/s3-bucket-{{ parameters.name }}
