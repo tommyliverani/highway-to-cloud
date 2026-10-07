@@ -16,3 +16,6 @@ spec:
     server: https://kubernetes.default.svc
     namespace: {{ crossplane.namespace | dump }}
   # No automated sync: the deploy pipeline of this component syncs it.
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

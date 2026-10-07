@@ -1,7 +1,7 @@
 name: deploy
 
 # Generic deploy pipeline: finds the components that differ between develop and main (not deployed yet),
-# deploys each one with the module of its deploy pipeline (deploy-<deploy>.yaml, or the argo job), then
+# deploys each one with the module of its deploy pipeline (deploy-<deploy>.yaml), then
 # merges the deployed develop commit into main if nothing failed. Runs when a templater PR is merged into
 # develop.
 on:
@@ -121,6 +121,19 @@ jobs:
       ref: ${{ needs.deploy.outputs.sha }}
     secrets: inherit
 
+  argo:
+    needs: deploy
+    if: needs.deploy.outputs.argo != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        resource: ${{ fromJSON(needs.deploy.outputs.argo) }}
+    uses: ./.github/workflows/deploy-argo.yaml
+    with:
+      resource: ${{ matrix.resource }}
+      ref: ${{ needs.deploy.outputs.sha }}
+    secrets: inherit
+
   # Runs only if no module failed (skipped modules are fine). Only the deployed commit is merged,
   # even if develop moved on meanwhile.
   merge-main:
@@ -143,98 +156,3 @@ jobs:
           git merge --no-ff "$DEPLOYED_SHA" -m "chore: merge deployed resources from develop"
           git push origin main
 
-  # Deploy of the "argo" components. The Argo CD Applications track develop (targetRevision), so like the other
-  # pipelines this job deploys before merge-main, which waits for it. It is one job and not a matrix of
-  # components because the order matters: this job syncs, one by one,
-  # the Application(s) that deliver each deployed argo component: the ones named by its .idp.yaml
-  # (argo_application, a name or an ordered list; the template computes them from the resource id with a naming
-  # convention), those delivering other Applications (resources/argo-apps) first. The cluster comes from the
-  # .idp.yaml too (kubeconfig; kubectl and argocd_namespace are optional). Components without kubeconfig, like
-  # the local Kind cluster that the GitHub runner cannot reach, are listed to be synced by hand.
-  argo:
-    needs: deploy
-    if: needs.deploy.outputs.argo != '[]'
-    runs-on: self-hosted
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.deploy.outputs.sha }}
-
-      - name: Sync the Argo CD Applications
-        env:
-          COMPONENTS: ${{ needs.deploy.outputs.argo }}
-        run: |
-          # An error inside $(...) must fail the job, not leave it green having synced nothing.
-          set -o pipefail; shopt -s inherit_errexit
-          # "<order> <component> <application>"; sort -s keeps the order of the Applications within a component.
-          plan=$(jq -r '.[]' <<< "$COMPONENTS" | while read -r dir; do
-            order=1; [[ "$dir" == resources/argo-apps/* ]] && order=0
-            for app in $(yq '[.argo_application] | flatten | .[] | select(. != null)' "$dir/.idp.yaml"); do
-              echo "$order $dir $app"
-            done
-          done | sort -s -k1,1n)
-          [ -n "$plan" ] || { echo "::error::No argo_application found in the deployed argo components"; exit 1; }
-
-          # Setting .operation on an Application is what "Sync" does: the Argo CD controller runs it. The previous
-          # operation stays in .status.operationState until the new one starts, so its startedAt tells them apart.
-          sync_application() {
-            local app=$1 i before started phase
-            echo "==> Syncing $app"
-            for i in $(seq 1 36); do   # it can be created by the sync of the previous one
-              k get application "$app" > /dev/null 2>&1 && break
-              [ "$i" = 36 ] && { echo "::error::Application $app does not exist"; return 1; }
-              sleep 5
-            done
-            # Hard refresh first: Argo CD would otherwise sync the revision of develop it resolved at its last refresh.
-            k annotate application "$app" argocd.argoproj.io/refresh=hard --overwrite > /dev/null
-            for i in $(seq 1 12); do
-              [ -z "$(k get application "$app" -o jsonpath='{.metadata.annotations.argocd\.argoproj\.io/refresh}' || true)" ] && break
-              sleep 5
-            done
-            before=$(k get application "$app" -o jsonpath='{.status.operationState.startedAt}')
-            k patch application "$app" --type merge -p '{"operation":{"initiatedBy":{"username":"idp-deploy"},"sync":{}}}' > /dev/null
-            for i in $(seq 1 60); do
-              started=$(k get application "$app" -o jsonpath='{.status.operationState.startedAt}' || true)
-              phase=$(k get application "$app" -o jsonpath='{.status.operationState.phase}' || true)
-              if [ -n "$started" ] && [ "$started" != "$before" ]; then
-                case "$phase" in
-                  Succeeded) echo "Application $app synced"; return 0 ;;
-                  Failed|Error) echo "::error::Sync of $app failed: $(k get application "$app" -o jsonpath='{.status.operationState.message}')"; return 1 ;;
-                esac
-              fi
-              sleep 5
-            done
-            echo "::error::Sync of $app did not finish in 5 minutes"; return 1
-          }
-
-          manual=""
-          declare -A synced
-          while read -r order dir app; do
-            [ -n "$app" ] || continue
-            meta="$dir/.idp.yaml"
-            kubeconfig=$(yq '.kubeconfig // ""' "$meta")
-            if [ -z "$kubeconfig" ]; then manual="$manual $app"; continue; fi
-            kubectl_bin=$(yq '.kubectl // "kubectl"' "$meta")
-            argocd_namespace=$(yq '.argocd_namespace // "argocd"' "$meta")
-            [[ "$app" =~ ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$ ]] || { echo "::error::Invalid Application name '$app' in $meta"; exit 1; }
-            [[ "$kubeconfig" =~ ^[A-Za-z0-9._/+-]+$ && "$kubectl_bin" =~ ^[A-Za-z0-9._/+-]+$ && "$argocd_namespace" =~ ^[a-z0-9-]+$ ]] || { echo "::error::Invalid kubeconfig, kubectl or argocd_namespace in $meta"; exit 1; }
-            [ -f "$kubeconfig" ] || { echo "::error::kubeconfig $kubeconfig not found: is the cluster deployed?"; exit 1; }
-            command -v "$kubectl_bin" > /dev/null || { echo "::error::$kubectl_bin not found on the runner"; exit 1; }
-            [ -z "${synced[$kubeconfig/$app]:-}" ] || continue
-            k() { "$kubectl_bin" --kubeconfig "$kubeconfig" --namespace "$argocd_namespace" "$@"; }
-            sync_application "$app"
-            synced[$kubeconfig/$app]=1
-          done <<< "$plan"
-
-          if [ -n "$manual" ]; then
-            apps=$(tr ' ' '\n' <<< "$manual" | awk 'NF && !seen[$0]++')
-            echo "Applications to sync by hand, in order:"; echo "$apps"
-            {
-              echo "## Argo CD: manual sync required"
-              echo "The components are on \`develop\` (merged into \`main\` without waiting for them). Sync these Applications in this order (Argo CD UI → Sync, or CLI):"
-              echo '```bash'
-              for app in $apps; do echo "argocd app sync $app"; done
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi

@@ -1,0 +1,107 @@
+name: deploy-argo
+
+# Deploy module for "deploy: argo" components: Kubernetes manifests (or a Helm chart) delivered by Argo CD,
+# whatever tool produced them (a Crossplane XR, the Argo CD Application of an instance, a chart). The deploy is
+# the sync of the component's reference Application(s): the ones named by its .idp.yaml (argo_application, a
+# name or a list synced in order; the template computes it from the resource id with a naming convention). The
+# Applications track develop, so this runs before develop is merged into main, like the other modules.
+# The order between components is not handled here: the pull requests of a recipe are merged one at a time.
+# The cluster comes from the .idp.yaml too (kubeconfig; kubectl and argocd_namespace are optional). A component
+# without kubeconfig (a cluster the runner cannot reach) is listed in the run summary to be synced by hand.
+on:
+  workflow_call:
+    inputs:
+      resource:
+        description: 'Component folder, e.g. resources/s3-bucket-x or resources/argo-apps/s3-bucket-x'
+        required: true
+        type: string
+      ref:
+        description: 'Commit to deploy'
+        required: true
+        type: string
+
+jobs:
+  sync:
+    runs-on: self-hosted
+
+    env:
+      RESOURCE: ${{ inputs.resource }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Sync the reference Application
+        run: |
+          # An error inside $(...) must fail the job, not leave it green having synced nothing.
+          set -o pipefail; shopt -s inherit_errexit
+          [[ "$RESOURCE" =~ ^resources(/[A-Za-z0-9._-]+)+$ && "$RESOURCE" != *..* ]] || { echo "::error::Invalid resource '$RESOURCE'"; exit 1; }
+          meta="$RESOURCE/.idp.yaml"
+          apps=$(yq '[.argo_application] | flatten | .[] | select(. != null)' "$meta")
+          [ -n "$apps" ] || { echo "::error::$meta declares no argo_application"; exit 1; }
+          for app in $apps; do
+            [[ "$app" =~ ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$ ]] || { echo "::error::Invalid Application name '$app' in $meta"; exit 1; }
+          done
+
+          kubeconfig=$(yq '.kubeconfig // ""' "$meta")
+          if [ -z "$kubeconfig" ]; then
+            echo "$RESOURCE names no cluster (kubeconfig): its Applications must be synced by hand"
+            {
+              echo "## Argo CD: manual sync required for \`$RESOURCE\`"
+              echo "Sync these Applications in this order (Argo CD UI → Sync, or CLI):"
+              echo '```bash'
+              for app in $apps; do echo "argocd app sync $app"; done
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          kubectl_bin=$(yq '.kubectl // "kubectl"' "$meta")
+          argocd_namespace=$(yq '.argocd_namespace // "argocd"' "$meta")
+          [[ "$kubeconfig" =~ ^[A-Za-z0-9._/+-]+$ && "$kubectl_bin" =~ ^[A-Za-z0-9._/+-]+$ && "$argocd_namespace" =~ ^[a-z0-9-]+$ ]] || { echo "::error::Invalid kubeconfig, kubectl or argocd_namespace in $meta"; exit 1; }
+          [ -f "$kubeconfig" ] || { echo "::error::kubeconfig $kubeconfig not found: is the cluster deployed?"; exit 1; }
+          command -v "$kubectl_bin" > /dev/null || { echo "::error::$kubectl_bin not found on the runner"; exit 1; }
+          k() { "$kubectl_bin" --kubeconfig "$kubeconfig" --namespace "$argocd_namespace" "$@"; }
+
+          # Setting .operation on an Application is what "Sync" does: the Argo CD controller runs it. The previous
+          # operation stays in .status.operationState until the new one starts, so its startedAt tells them apart.
+          sync_application() {
+            local app=$1 i before started phase
+            echo "==> Syncing $app"
+            k get application "$app" > /dev/null 2>&1 || { echo "::error::Application $app does not exist: is the component that creates it deployed?"; return 1; }
+            # Another component of the same run may be syncing the same Application (e.g. the root app): wait for it.
+            for i in $(seq 1 60); do
+              [ "$(k get application "$app" -o jsonpath='{.status.operationState.phase}' || true)" != "Running" ] && break
+              [ "$i" = 1 ] && echo "An operation is running on $app: waiting for it"
+              sleep 5
+            done
+            # Hard refresh first: Argo CD would otherwise sync the revision of develop it resolved at its last refresh.
+            k annotate application "$app" argocd.argoproj.io/refresh=hard --overwrite > /dev/null
+            for i in $(seq 1 12); do
+              [ -z "$(k get application "$app" -o jsonpath='{.metadata.annotations.argocd\.argoproj\.io/refresh}' || true)" ] && break
+              sleep 5
+            done
+            before=$(k get application "$app" -o jsonpath='{.status.operationState.startedAt}')
+            # The operation carries the sync options of the Application (e.g. CreateNamespace=true), as the UI and the
+            # automated sync do: an operation without them would ignore the ones in the spec.
+            options=$(k get application "$app" -o json | jq -c '.spec.syncPolicy.syncOptions // []')
+            k patch application "$app" --type merge -p "$(jq -cn --argjson options "$options" \
+              '{operation: {initiatedBy: {username: "idp-deploy"}, sync: {syncOptions: $options}}}')" > /dev/null
+            for i in $(seq 1 60); do
+              started=$(k get application "$app" -o jsonpath='{.status.operationState.startedAt}' || true)
+              phase=$(k get application "$app" -o jsonpath='{.status.operationState.phase}' || true)
+              if [ -n "$started" ] && [ "$started" != "$before" ]; then
+                case "$phase" in
+                  Succeeded) echo "Application $app synced"; return 0 ;;
+                  Failed|Error) echo "::error::Sync of $app failed: $(k get application "$app" -o jsonpath='{.status.operationState.message}')"; return 1 ;;
+                esac
+              fi
+              sleep 5
+            done
+            echo "::error::Sync of $app did not finish in 5 minutes"; return 1
+          }
+
+          for app in $apps; do
+            sync_application "$app"
+          done
