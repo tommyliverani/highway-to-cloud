@@ -5,19 +5,19 @@ plans:
   k3s-on-prem:
       #k3s cluster with ansible
     - template: github.com/tommyliverani/highway-to-cloud//templates/k3s/create_cluster/ansible
-      resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}
+      resource: github.com/tommyliverani/highway-to-cloud//resources/kubernetes-cluster-{{ parameters.name }}
       #k3s argocd instance with helm
     - template: github.com/tommyliverani/highway-to-cloud//templates/argocd/install/helm
-      resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}-argocd
+      resource: github.com/tommyliverani/highway-to-cloud//resources/kubernetes-cluster-{{ parameters.name }}-argocd
       #k3s argocd root-app with kubectl
     - template: github.com/tommyliverani/highway-to-cloud//templates/argocd/create_root_application/kubectl
-      resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}-argocd-apps
+      resource: github.com/tommyliverani/highway-to-cloud//resources/kubernetes-cluster-{{ parameters.name }}-argocd-apps
       #k3s crossplane-app sync  with root-app sync
     - template: github.com/tommyliverani/highway-to-cloud//templates/crossplane/create_application/argo
-      resource: github.com/tommyliverani/highway-to-cloud//resources/argo-apps/{{ resource_id }}-crossplane
+      resource: github.com/tommyliverani/highway-to-cloud//resources/argo-apps/kubernetes-cluster-{{ parameters.name }}-crossplane
       #k3s crossplane helm chart with crossplane-app sync
     - template: github.com/tommyliverani/highway-to-cloud//templates/crossplane/install/argo
-      resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}-crossplane
+      resource: github.com/tommyliverani/highway-to-cloud//resources/kubernetes-cluster-{{ parameters.name }}-crossplane
       #k3s crossplane-bb-app with app-of-app sync
     - template: github.com/tommyliverani/highway-to-cloud//templates/crossplane/create_building_blocks_application/argo
-      resource: github.com/tommyliverani/highway-to-cloud//resources/argo-apps/{{ resource_id }}-crossplane-bb
+      resource: github.com/tommyliverani/highway-to-cloud//resources/argo-apps/kubernetes-cluster-{{ parameters.name }}-crossplane-bb

@@ -1,8 +1,9 @@
 create: false
 resourceId: s3-bucket-{{ parameters.name }}
-terraform:
-  - template: github.com/tommyliverani/highway-to-cloud//templates/s3/enable_intelligent_tiering/terraform
-    resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}
-crossplane:
-  - template: github.com/tommyliverani/highway-to-cloud//templates/s3/enable_intelligent_tiering/crossplane
-    resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}
+plans:
+  terraform:
+    - template: github.com/tommyliverani/highway-to-cloud//templates/s3/enable_intelligent_tiering/terraform
+      resource: github.com/tommyliverani/highway-to-cloud//resources/s3-bucket-{{ parameters.name }}
+  crossplane:
+    - template: github.com/tommyliverani/highway-to-cloud//templates/s3/enable_intelligent_tiering/crossplane
+      resource: github.com/tommyliverani/highway-to-cloud//resources/s3-bucket-{{ parameters.name }}

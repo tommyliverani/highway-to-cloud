@@ -1,25 +1,21 @@
-{# Parameters: the size is implementation-neutral, mapped here to the instance types of this tool #}
-{% set sizes = {"small": "t3.micro", "medium": "t3.small", "large": "t3.medium"} %}
+{# Parameters #}
 name: {{ parameters.name | dump }}
-instance_type: {{ sizes[parameters.size or "small"] | dump }}
+instance_type: {{ parameters.instance_type | dump }}
 
 {# Platform #}
 region: {{ platform.region | dump }}
 account_id: {{ platform.account_id | dump }}
 ami_ssm_parameter: {{ platform.ami_ssm_parameter | dump }}
-root_volume_size: {{ platform.root_volume_size }}
-{% if platform.subnet_id %}
+root_volume_size: {{ platform.root_volume_size | dump }}
+root_volume_type: {{ platform.root_volume_type | dump }}
 subnet_id: {{ platform.subnet_id | dump }}
-{% endif %}
-{% if platform.security_group_ids %}
-vpc_security_group_ids: {{ platform.security_group_ids | dump }}
-{% endif %}
+tags: {{ (platform.tags or {}) | dump }}
 
 {# Security #}
-root_volume_encrypted: {{ security.root_volume_encrypted }}
-imds_v2_required: {{ security.imds_v2_required }}
+root_volume_encrypted: {{ security.root_volume_encrypted | dump }}
+root_volume_kms_key_id: {{ security.root_volume_kms_key_id | dump }}
 
-{# Terraform backend: passed to terraform init with -backend-config, not as a variable #}
+{# Terraform backend: #}
 backend:
   bucket: {{ tf_backend.state_bucket | dump }}
   region: {{ tf_backend.state_region | dump }}

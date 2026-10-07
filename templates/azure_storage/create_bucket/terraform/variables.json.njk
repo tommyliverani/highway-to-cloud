@@ -1,0 +1,24 @@
+{# Parameters #}
+name: {{ parameters.name | dump }}
+
+{# Platform #}
+subscription_id: {{ platform.subscription_id | dump }}
+location: {{ platform.location | dump }}
+resource_group_name: {{ platform.resource_group_name | dump }}
+name_prefix: {{ platform.name_prefix | dump }}
+replication_type: {{ platform.replication_type | dump }}
+access_tier: {{ platform.access_tier | dump }}
+versioning_enabled: {{ platform.versioning_enabled | dump }}
+soft_delete_retention_days: {{ platform.soft_delete_retention_days | dump }}
+tags: {{ (platform.tags or {}) | dump }}
+
+{# Security #}
+min_tls_version: {{ security.min_tls_version | dump }}
+public_access_allowed: {{ security.public_access_allowed | dump }}
+customer_managed_key: {{ security.customer_managed_key | dump }}
+
+{# Terraform backend: passed to terraform init with -backend-config, not as a variable #}
+backend:
+  bucket: {{ tf_backend.state_bucket | dump }}
+  region: {{ tf_backend.state_region | dump }}
+  key: {{ ("resources/" + resource_id + "/terraform.tfstate") | dump }}

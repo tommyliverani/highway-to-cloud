@@ -27,22 +27,28 @@ variable "subnet_id" {
   default     = null
 }
 
-variable "vpc_security_group_ids" {
-  description = "Security groups of the instance. If empty, the default security group of the VPC."
-  type        = list(string)
-  default     = []
-}
-
 variable "root_volume_size" {
   description = "Size in GiB of the root volume."
   type        = number
   default     = 8
 }
 
+variable "root_volume_type" {
+  description = "EBS volume type of the root volume."
+  type        = string
+  default     = "gp3"
+}
+
 variable "root_volume_encrypted" {
-  description = "Encrypt the root volume (with the default EBS key of the account)."
+  description = "Encrypt the root volume."
   type        = bool
   default     = true
+}
+
+variable "root_volume_kms_key_id" {
+  description = "KMS key of the root volume. If null, the default EBS key of the account. Requires root_volume_encrypted."
+  type        = string
+  default     = null
 }
 
 variable "imds_v2_required" {
@@ -52,7 +58,7 @@ variable "imds_v2_required" {
 }
 
 variable "tags" {
-  description = "Additional tags of the instance."
+  description = "Tags of the instance."
   type        = map(string)
   default     = {}
 }

@@ -21,6 +21,11 @@ jobs:
       RESOURCE: ${{ inputs.resource }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ADMIN_ACCESS_KEY }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.ADMIN_SECRET_ACCESS_KEY }}
+      # Azure service principal, used by the azurerm provider (the subscription comes from the resource's
+      # variables). Only resources on Azure need them; the state is in S3 for every resource.
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
       TF_IN_AUTOMATION: 'true'
 
     steps:

@@ -1,0 +1,9 @@
+# What the security office requires of the storage on Azure.
+
+min_tls_version: TLS1_2
+public_access_allowed: false
+
+# Encryption with a key of Key Vault: when null, Microsoft-managed keys (always on). Example:
+#   key_vault_key_id: https://<vault>.vault.azure.net/keys/<key>
+#   user_assigned_identity_id: /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/<id>
+customer_managed_key: null

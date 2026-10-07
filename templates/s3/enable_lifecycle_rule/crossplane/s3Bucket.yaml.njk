@@ -1,10 +1,6 @@
-{# old_values is the existing S3Bucket XR: re-emit it with the lifecycle rule fields set #}
-{% set overridden = ["lifecycleRuleEnabled", "lifecycleTransitionDays", "lifecycleTransitionStorageClass", "lifecycleExpirationDays", "lifecycleNoncurrentVersionExpirationDays", "lifecycleAbortMultipartDays"] %}
+{# Only the fields this operation changes: the process merges them onto the existing S3Bucket XR #}
 {# The Backstage form uses implementation-neutral names: they are mapped to S3 storage classes here #}
 {% set storage_classes = {"infrequent_access": "STANDARD_IA", "intelligent_tiering": "INTELLIGENT_TIERING", "archive": "GLACIER", "deep_archive": "DEEP_ARCHIVE"} %}
-apiVersion: {{ old_values.apiVersion | dump }}
-kind: {{ old_values.kind | dump }}
-metadata: {{ old_values.metadata | dump }}
 spec:
   lifecycleRuleEnabled: true
   lifecycleTransitionDays: {{ (parameters.transition_days or 0) | int }}
@@ -12,8 +8,3 @@ spec:
   lifecycleExpirationDays: {{ (parameters.expiration_days or 0) | int }}
   lifecycleNoncurrentVersionExpirationDays: {{ platform.lifecycle_noncurrent_version_expiration_days | int }}
   lifecycleAbortMultipartDays: {{ platform.lifecycle_abort_multipart_days | int }}
-{% for key, value in old_values.spec %}
-{% if not (key in overridden) %}
-  {{ key }}: {{ value | dump }}
-{% endif %}
-{% endfor %}

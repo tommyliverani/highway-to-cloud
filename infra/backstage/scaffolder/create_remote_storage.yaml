@@ -16,6 +16,7 @@ spec:
       description: Remote storage configuration
       required:
         - name
+        - cloud_provider
       properties:
 
         name:
@@ -25,6 +26,18 @@ spec:
           pattern: '^(?!xn--|sthree-|amzn-s3-demo-)(?!.*(-s3alias|--ol-s3|--x-s3|--table-s3)$)[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$'
           ui:help: '3-63 characters: lowercase letters, numbers and hyphens; must start and end with a letter or number.'
           ui:autofocus: true
+
+        cloud_provider:
+          title: Cloud provider
+          type: string
+          description: Cloud provider where the storage is created
+          default: aws
+          enum:
+            - aws
+            - azure
+          enumNames:
+            - AWS
+            - Azure
 
         title:
           title: Title

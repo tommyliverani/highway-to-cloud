@@ -36,15 +36,16 @@ data "aws_ssm_parameter" "ami" {
 
 resource "aws_instance" "this" {
   # The value of a public parameter is an AMI ID, not a secret.
-  ami                    = var.ami != null ? var.ami : nonsensitive(data.aws_ssm_parameter.ami[0].value)
-  instance_type          = var.instance_type
-  iam_instance_profile   = aws_iam_instance_profile.this.name
-  subnet_id              = var.subnet_id
-  vpc_security_group_ids = length(var.vpc_security_group_ids) > 0 ? var.vpc_security_group_ids : null
+  ami                  = var.ami != null ? var.ami : nonsensitive(data.aws_ssm_parameter.ami[0].value)
+  instance_type        = var.instance_type
+  iam_instance_profile = aws_iam_instance_profile.this.name
+  subnet_id            = var.subnet_id
 
   root_block_device {
     volume_size = var.root_volume_size
+    volume_type = var.root_volume_type
     encrypted   = var.root_volume_encrypted
+    kms_key_id  = var.root_volume_kms_key_id
   }
 
   metadata_options {
@@ -55,4 +56,11 @@ resource "aws_instance" "this" {
   tags = merge(var.tags, {
     Name = var.name
   })
+
+  lifecycle {
+    precondition {
+      condition     = var.root_volume_kms_key_id == null || var.root_volume_encrypted
+      error_message = "root_volume_kms_key_id requires root_volume_encrypted = true."
+    }
+  }
 }

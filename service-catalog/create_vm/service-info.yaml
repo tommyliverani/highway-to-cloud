@@ -4,4 +4,4 @@ scaffolding_plan: ec2_terraform
 plans:
   ec2_terraform:
     - template: github.com/tommyliverani/highway-to-cloud//templates/ec2/create_vm/terraform
-      resource: github.com/tommyliverani/highway-to-cloud//resources/{{ resource_id }}
+      resource: github.com/tommyliverani/highway-to-cloud//resources/ec2-instance-{{ parameters.name }}

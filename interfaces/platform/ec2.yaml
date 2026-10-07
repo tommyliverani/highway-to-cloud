@@ -1,12 +1,15 @@
-# What the platform decides for the virtual machines it creates
+
 region: us-east-1
 account_id: "311618538285"
 
-# Operating system image: public SSM parameter that always points to the latest Amazon Linux 2023
 ami_ssm_parameter: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
-root_volume_size: 20
 
-# Network: when absent, the default VPC of the region and its default security group
-# subnet_id: subnet-0123456789abcdef0
-# security_group_ids:
-#   - sg-0123456789abcdef0
+root_volume_size: 20
+root_volume_type: gp3
+
+# Subnet: when null, the default VPC of the region
+subnet_id: null
+
+tags:
+  ManagedBy: highwaytocloud
+  Environment: demo

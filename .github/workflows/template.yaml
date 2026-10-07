@@ -161,21 +161,34 @@ jobs:
             writeState("values", values);
           }
 
+          const isMapping = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+
+          // Every string value of service-info.yaml is a Nunjucks template rendered with the values (keys and
+          // non-string values are kept). The file is parsed first and only then rendered, so input parameters
+          // cannot inject extra YAML keys.
+          function renderTree(node, context) {
+            if (typeof node === "string") return env.renderString(node, context).trim();
+            if (Array.isArray(node)) return node.map((n) => renderTree(n, context));
+            if (isMapping(node)) return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, renderTree(v, context)]));
+            return node;
+          }
+
           // 2) Resolve the instance from service-info.yaml: its resourceId, its tool (recorded in the resource
           //    catalog, or scaffolding_plan for a new instance) and the components of that tool's recipe
-          //    (plans.<tool>).
-          //    Strings are rendered after YAML parsing, so input parameters cannot inject extra YAML keys.
+          //    (plans.<tool>). The whole file is rendered once, with the values: a component builds its folder
+          //    from the same formula as resourceId. resource_id is then added to the values of the templates.
           function resolveInstance() {
             const values = readState("values");
-            const info = loadYaml(path.join(serviceDir(), "service-info.yaml")) || {};
-            if (typeof info !== "object" || Array.isArray(info)) fail("service-info.yaml must be a mapping");
-            if (typeof info.create !== "boolean") fail("service-info.yaml: create must be true or false");
+            const raw = loadYaml(path.join(serviceDir(), "service-info.yaml")) || {};
+            if (!isMapping(raw)) fail("service-info.yaml must be a mapping");
+            if (typeof raw.create !== "boolean") fail("service-info.yaml: create must be true or false");
 
-            const renderIn = (context) => (v) => (typeof v === "string" ? env.renderString(v, context).trim() : v);
-            const resourceId = renderIn(values)(info.resourceId || "");
+            const info = renderTree(raw, values);
+            const resourceId = info.resourceId || "";
             if (!RESOURCE_ID_PATTERN.test(resourceId)) {
               fail(`Invalid resourceId "${resourceId}": lowercase letters, numbers and hyphens, max 63 characters`);
             }
+            const context = { ...values, resource_id: resourceId };
 
             const catalogFile = path.join(REPO_ROOT, RESOURCE_CATALOG_DIR, `${resourceId}.yaml`);
             const existing = fs.existsSync(catalogFile);
@@ -199,9 +212,8 @@ jobs:
 
             // The recipe of each tool lists its components with the full template path (tool folder included);
             // how a component is deployed is declared by its template's .idp.yaml.
-            const context = { ...values, resource_id: resourceId };
             const components = recipe.map((entry, i) => {
-              const c = Object.fromEntries(Object.entries(entry || {}).map(([k, v]) => [k, renderIn(context)(v)]));
+              const c = { ...(entry || {}) };
               for (const key of ["template", "resource"]) {
                 if (!c[key]) fail(`service-info.yaml ${tool}[${i}] is missing ${key}`);
               }
@@ -266,10 +278,24 @@ jobs:
             return lines.length ? `${lines.join("\n")}\n` : "";
           };
 
+          // JSON Merge Patch (RFC 7386): mappings are merged recursively, a null removes the key, anything
+          // else (scalars, lists) replaces the old value.
+          function mergePatch(target, patch) {
+            if (!isMapping(patch)) return patch;
+            const result = isMapping(target) ? { ...target } : {};
+            for (const [key, value] of Object.entries(patch)) {
+              if (value === null) delete result[key];
+              else result[key] = mergePatch(result[key], value);
+            }
+            return result;
+          }
+
           // Data files (.json/.yaml/.yml) are parsed as YAML (JSON is a subset), so broken output fails here
           // and .json targets are always valid JSON even if the template is written in YAML syntax.
-          // Switching format (e.g. variables.yaml -> variables.json) removes the stale sibling.
-          function writeRendered(dest, rendered, source) {
+          // With "base" (the existing content, for modification services) the output is merged onto it
+          // instead of replacing it. Switching format (e.g. variables.yaml -> variables.json) removes the
+          // stale sibling.
+          function writeRendered(dest, rendered, source, base) {
             const ext = path.extname(dest);
             let content = rendered;
             if (DATA_EXTENSIONS.includes(ext)) {
@@ -279,7 +305,12 @@ jobs:
               } catch (e) {
                 fail(`${source} does not render valid YAML/JSON: ${e.message}`);
               }
-              content = ext === ".json" ? `${JSON.stringify(data ?? {}, null, 2)}\n` : removeBlankLines(rendered);
+              if (base !== undefined) {
+                data = mergePatch(base, data ?? {});
+                content = ext === ".json" ? `${JSON.stringify(data, null, 2)}\n` : yaml.dump(data, { lineWidth: -1 });
+              } else {
+                content = ext === ".json" ? `${JSON.stringify(data ?? {}, null, 2)}\n` : removeBlankLines(rendered);
+              }
               const base = dest.slice(0, -ext.length);
               for (const other of DATA_EXTENSIONS.filter((e) => e !== ext)) {
                 if (fs.existsSync(base + other)) {
@@ -326,7 +357,9 @@ jobs:
           }
 
           // 4) Copy each component's template folder into the component folder. <name>.<ext>.njk renders to <name>.<ext>;
-          //    a bare <name>.njk renders to <name>.yaml. Other files are copied as-is.
+          //    a bare <name>.njk renders to <name>.yaml. Other files are copied as-is. For a modification
+          //    service (create: false) a rendered data file that already exists is merged onto it (JSON Merge
+          //    Patch), so its template only writes the keys it changes.
           //    Each component becomes its own pull request (in a multi-repo setup, one per repository): the
           //    render step lists them in prs.json with the paths they own and their PR body.
           function renderComponents() {
@@ -344,9 +377,11 @@ jobs:
                 const src = path.join(templateDir, rel);
                 if (rel.endsWith(".njk")) {
                   const context = { ...values };
-                  if (r.old_values[rel]) context.old_values = r.old_values[rel];
+                  const old = r.old_values[rel];
+                  if (old) context.old_values = old;
                   const dest = path.join(resourceDir, renderedName(rel));
-                  writeRendered(dest, env.renderString(fs.readFileSync(src, "utf8"), context), rel);
+                  const base = instance.create ? undefined : old;
+                  writeRendered(dest, env.renderString(fs.readFileSync(src, "utf8"), context), rel, base);
                 } else {
                   const dest = path.join(resourceDir, rel);
                   fs.mkdirSync(path.dirname(dest), { recursive: true });

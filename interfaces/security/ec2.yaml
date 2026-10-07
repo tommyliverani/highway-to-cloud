@@ -1,3 +1,4 @@
-# What the security office requires of the virtual machines
+
+
 root_volume_encrypted: true
-imds_v2_required: true   # instance metadata only through session tokens (mitigates SSRF credential theft)
+root_volume_kms_key_id: arn:aws:kms:us-east-1:311618538285:key/1234abcd-12ab-34cd-56ef-1234567890ab
