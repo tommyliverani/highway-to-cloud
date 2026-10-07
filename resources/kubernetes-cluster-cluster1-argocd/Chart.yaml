@@ -1,9 +1,0 @@
-# Umbrella chart: the deploy pipeline builds the Argo CD dependency and upgrades this chart.
-apiVersion: v2
-name: argocd-install
-description: "Argo CD in the cluster kubernetes-cluster-cluster1"
-version: 0.1.0
-dependencies:
-  - name: "argo-cd"
-    version: "10.9.6"
-    repository: "https://argoproj.github.io/argo-helm"

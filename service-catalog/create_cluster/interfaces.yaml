@@ -6,3 +6,5 @@
   alias: crossplane
 - source: github.com/tommyliverani/highway-to-cloud//interfaces/security/argocd.yaml
   alias: argo_security
+- source: github.com/tommyliverani/highway-to-cloud//interfaces/security/kubernetes.yaml
+  alias: security
