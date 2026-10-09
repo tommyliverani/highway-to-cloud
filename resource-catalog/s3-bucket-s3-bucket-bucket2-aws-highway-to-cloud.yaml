@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: s3-bucket-bucket2-aws-highway-to-cloud
+  title: s3-bucket-bucket2-aws-highway-to-cloud
+  description: s3-bucket-bucket2-aws-highway-to-cloud
+  tags:
+    - aws
+    - s3
+    - storage
+  annotations:
+    highwaytocloud.io/tool: storage-aws
+    highwaytocloud.io/service: create_remote_storage
+spec:
+  type: storage
+  owner: guest
+  lifecycle: production
