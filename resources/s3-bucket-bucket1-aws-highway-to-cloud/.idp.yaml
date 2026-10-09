@@ -1,0 +1,5 @@
+deploy: argo
+argo_application: "s3-bucket-bucket1-aws-highway-to-cloud"
+argocd_namespace: "argocd"
+kubeconfig: "/home/tommy/Desktop/tommy/highway-to-cloud/infra/secrets/kubernetes-cluster-cluster1.yaml"
+kubectl: "/usr/local/k3s/bin/kubectl"
