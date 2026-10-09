@@ -18,6 +18,6 @@ plans:
       #k3s crossplane helm chart with crossplane-app sync
     - template: github.com/tommyliverani/highway-to-cloud//templates/crossplane/install/argo
       resource: github.com/tommyliverani/highway-to-cloud//resources/kubernetes-cluster-{{ parameters.name }}-crossplane
-      #k3s crossplane-bb-app with app-of-app sync
+      #k3s crossplane-bb-app with crossplane--app sync
     - template: github.com/tommyliverani/highway-to-cloud//templates/crossplane/create_building_blocks_application/argo
       resource: github.com/tommyliverani/highway-to-cloud//resources/argo-apps/kubernetes-cluster-{{ parameters.name }}-crossplane-bb

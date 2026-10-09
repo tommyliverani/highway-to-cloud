@@ -5,8 +5,6 @@ metadata:
   namespace: {{ argo.install_namespace | dump }}
 spec:
   project: {{ argo.project | dump }}
-  # The Helm chart of the "crossplane" component (resources/<resource_id>-crossplane): the path must match
-  # that component's `resource` in the recipe of service-info.yaml.
   source:
     repoURL: {{ argo.repo_url | dump }}
     targetRevision: {{ argo.target_revision | dump }}
@@ -14,8 +12,6 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ crossplane.namespace | dump }}
-  # No automated sync: the deploy pipeline of the "crossplane" component syncs it. Server-side apply: the
-  # Crossplane CRDs are too large for client-side apply.
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
