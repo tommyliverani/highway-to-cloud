@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: storage11-highwaytocloud
+  title: storage11-highwaytocloud
+  description: storage11-highwaytocloud
+  tags:
+    - aws
+    - s3
+    - storage
+  annotations:
+    highwaytocloud.io/tool: storage-azure
+    highwaytocloud.io/service: create_remote_storage
+spec:
+  type: storage
+  owner: guest
+  lifecycle: production
