@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: storage11-porto-highwaytocloud
+  title: storage11-porto-highwaytocloud
+  description: storage11-porto-highwaytocloud
+  tags:
+    - aws
+    - s3
+    - storage
+  annotations:
+    highwaytocloud.io/tool: storage-azure
+    highwaytocloud.io/service: create_remote_storage
+spec:
+  type: storage
+  owner: guest
+  lifecycle: production
